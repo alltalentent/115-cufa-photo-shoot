@@ -500,7 +500,7 @@
   <script>
 
     const API_URL =
-      'https://script.google.com/macros/s/AKfycby2mbLVPRt51qYD12ibSuXWsD8idyPTiWqHVbH9Iz2Hdlhdwj8PwcIAH_AgTBC5xXc/exec';
+      'https://script.google.com/macros/s/AKfycbxJUp8biTRsMqMAoC1bnkQxXDtYcKlWk5xsClwe_wyxQ4kd9utBba0kJUi0mA4SNf4/exec';
 
 
     let adminPassword = '';
