@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+  <title>115學年度崇右影藝科技大學表演藝術系系服購買系統</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      margin: 0;
+      width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Noto Sans TC",
+        "PingFang TC",
+        "Microsoft JhengHei",
+        sans-serif;
+      background: #f5f6f8;
+      color: #222;
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      -webkit-appearance: none;
+      appearance: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .container {
+      width: min(100%, 900px);
+      margin: 0 auto;
+      padding: 34px 20px 56px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 26px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 27px;
+      line-height: 1.45;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+
+    .card {
+      width: 100%;
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 3px 16px rgba(0, 0, 0, 0.06);
+    }
+
+    .section-title {
+      margin: 0 0 16px;
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-width: 0;
+      height: 56px;
+      padding: 0 15px;
+      border: 1px solid #d7dbe0;
+      border-radius: 10px;
+      background: #fff;
+      color: #222;
+      font-size: 18px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: #555;
+    }
+
+    .primary-btn {
+      width: 100%;
+      min-height: 58px;
+      border: 0;
+      border-radius: 10px;
+      background: #111;
+      color: #fff;
+      font-size: 19px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .primary-btn:active {
+      opacity: 0.82;
+    }
+
+    .primary-btn:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+
+    .student-info {
+      background: #f6f7f8;
+      border-radius: 12px;
+      padding: 18px;
+      font-size: 18px;
+    }
+
+    .student-info-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .student-info-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .student-info-label {
+      flex: 0 0 70px;
+      font-weight: 700;
+    }
+
+    .student-info-value {
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+    }
+
+    .existing-size {
+      margin-bottom: 20px;
+      padding: 15px 17px;
+      border-radius: 10px;
+      background: #f1f2f3;
+      font-size: 18px;
+    }
+
+    .existing-size strong {
+      font-size: 21px;
+    }
+
+    .price-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 22px 0;
+      padding: 17px 18px;
+      border-radius: 12px;
+      background: #f6f7f8;
+    }
+
+    .price-label {
+      font-weight: 700;
+    }
+
+    .price {
+      font-size: 24px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .message {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 9px;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .message.error {
+      display: block;
+      background: #fff0f0;
+      color: #b42318;
+    }
+
+    .message.info {
+      display: block;
+      background: #f0f3f5;
+      color: #333;
+    }
+
+    .size-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .size-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 15px;
+      text-align: center;
+    }
+
+    .size-table th,
+    .size-table td {
+      padding: 11px 8px;
+      border: 1px solid #dfe2e5;
+      white-space: nowrap;
+    }
+
+    .size-table th {
+      background: #f2f3f4;
+      font-weight: 800;
+    }
+
+    .size-notes {
+      margin-top: 14px;
+      color: #666;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .mobile-size-list {
+      display: none;
+    }
+
+    .mobile-size-card {
+      padding: 14px 14px;
+      margin-bottom: 10px;
+      border: 1px solid #e0e2e5;
+      border-radius: 11px;
+      background: #fff;
+    }
+
+    .mobile-size-name {
+      margin-bottom: 8px;
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .mobile-size-detail {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 12px;
+      color: #444;
+      font-size: 15px;
+    }
+
+    .mobile-size-recommend {
+      margin-top: 9px;
+      padding-top: 9px;
+      border-top: 1px solid #eee;
+      color: #555;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .closed-box {
+      padding: 18px;
+      border-radius: 12px;
+      background: #f1f2f3;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    #successScreen {
+      display: none;
+      min-height: 100dvh;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 20px;
+      text-align: center;
+    }
+
+    .success-content {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .success-title {
+      margin-bottom: 12px;
+      font-size: 30px;
+      font-weight: 900;
+    }
+
+    .success-subtitle {
+      font-size: 19px;
+      color: #555;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 650px) {
+      body {
+        font-size: 17px;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 100%;
+        padding:
+          max(18px, env(safe-area-inset-top))
+          12px
+          max(34px, env(safe-area-inset-bottom));
+      }
+
+      .page-header {
+        margin-bottom: 20px;
+      }
+
+      .page-title {
+        font-size: clamp(22px, 6.1vw, 27px);
+        line-height: 1.42;
+      }
+
+      .card {
+        padding: 18px 14px;
+        margin-bottom: 16px;
+        border-radius: 14px;
+      }
+
+      .section-title {
+        font-size: 21px;
+      }
+
+      input,
+      select {
+        height: 54px;
+        font-size: 18px;
+      }
+
+      .primary-btn {
+        min-height: 56px;
+        font-size: 18px;
+      }
+
+      .student-info {
+        padding: 15px;
+        font-size: 17px;
+      }
+
+      .student-info-row {
+        align-items: flex-start;
+      }
+
+      .student-info-label {
+        flex-basis: 62px;
+      }
+
+      .price-box {
+        padding: 15px;
+      }
+
+      .price {
+        font-size: 22px;
+      }
+
+      .desktop-size-table {
+        display: none;
+      }
+
+      .mobile-size-list {
+        display: block;
+      }
+
+      .mobile-size-card:last-child {
+        margin-bottom: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main id="mainPage" class="container">
+
+    <header id="pageHeader" class="page-header">
+      <h1 class="page-title">
+        115學年度<br>
+        崇右影藝科技大學<br>
+        表演藝術系<br>
+        系服購買系統
+      </h1>
+    </header>
+
+    <section id="searchCard" class="card">
+      <h2 class="section-title">學生資料查詢</h2>
+
+      <div class="form-group">
+        <label for="studentIdInput">學號</label>
+
+        <input
+          id="studentIdInput"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="請輸入學號"
+        >
+      </div>
+
+      <button
+        id="searchBtn"
+        class="primary-btn"
+        type="button"
+      >
+        查詢
+      </button>
+
+      <div
+        id="searchMessage"
+        class="message"
+      ></div>
+    </section>
+
+
+    <div
+      id="registrationArea"
+      class="hidden"
+    >
+
+      <!-- 1. 學生資料 -->
+      <section class="card">
+        <h2 class="section-title">學生資料</h2>
+
+        <div
+          id="studentInfo"
+          class="student-info"
+        ></div>
+      </section>
+
+
+      <!-- 2. 尺寸表 -->
+      <section class="card">
+        <h2 class="section-title">尺寸參考</h2>
+
+        <div class="desktop-size-table">
+          <div class="size-table-wrapper">
+            <table class="size-table">
+              <thead>
+                <tr>
+                  <th>尺碼</th>
+                  <th>衣長</th>
+                  <th>胸寬</th>
+                  <th>肩寬</th>
+                  <th>袖長</th>
+                  <th>適合身高(cm)</th>
+                  <th>適合體重(kg)</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr><td>S</td><td>66</td><td>49</td><td>44</td><td>19</td><td>160-170</td><td>50-60</td></tr>
+                <tr><td>M</td><td>70</td><td>52</td><td>47</td><td>20</td><td>165-175</td><td>60-75</td></tr>
+                <tr><td>L</td><td>73</td><td>55</td><td>50</td><td>22</td><td>170-180</td><td>75-85</td></tr>
+                <tr><td>XL</td><td>76</td><td>58</td><td>53</td><td>24</td><td>175-185</td><td>85-90</td></tr>
+                <tr><td>2XL</td><td>79</td><td>61</td><td>56</td><td>26</td><td>180-190</td><td>90-105</td></tr>
+                <tr><td>3XL</td><td>81</td><td>64</td><td>59</td><td>27</td><td>185-195</td><td>105-115</td></tr>
+                <tr><td>4XL</td><td>83</td><td>68</td><td>62</td><td>28</td><td>190-210</td><td>115-125</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="mobile-size-list">
+
+          <div class="mobile-size-card">
+            <div class="mobile-size-name">S</div>
+            <div class="mobile-size-detail">
+              <div>衣長：66</div>
+              <div>胸寬：49</div>
+              <div>肩寬：44</div>
+              <div>袖長：19</div>
+            </div>
+            <div class="mobile-size-recommend">
+              身高 160-170 cm ／ 體重 50-60 kg
+            </div>
+          </div>
+
+          <div class="mobile-size-card">
+            <div class="mobile-size-name">M</div>
+            <div class="mobile-size-detail">
+              <div>衣長：70</div>
+              <div>胸寬：52</div>
+              <div>肩寬：47</div>
+              <div>袖長：20</div>
+            </div>
+            <div class="mobile-size-recommend">
+              身高 165-175 cm ／ 體重 60-75 kg
+            </div>
+          </div>
+
+          <div class="mobile-size-card">
+            <div class="mobile-size-name">L</div>
+            <div class="mobile-size-detail">
+              <div>衣長：73</div>
+              <div>胸寬：55</div>
+              <div>肩寬：50</div>
+              <div>袖長：22</div>
+            </div>
+            <div class="mobile-size-recommend">
+              身高 170-180 cm ／ 體重 75-85 kg
+            </div>
+          </div>
+
+          <div class="mobile-size-card">
+            <div class="mobile-size-name">XL</div>
+            <div class="mobile-size-detail">
+              <div>衣長：76</div>
+              <div>胸寬：58</div>
+              <div>肩寬：53</div>
+              <div>袖長：24</div>
+            </div>
+            <div class="mobile-size-recommend">
+              身高 175-185 cm ／ 體重 85-90 kg
+            </div>
+          </div>
+
+          <div class="mobile-size-card">
+            <div class="mobile-size-name">2XL</div>
+            <div class="mobile-size-detail">
+              <div>衣長：79</div>
+              <div>胸寬：61</div>
+              <div>肩寬：56</div>
+              <div>袖長：26</div>
+            </div>
+            <div class="mobile-size-recommend">
+              身高 180-190 cm ／ 體重 90-105 kg
+            </div>
+          </div>
+
+          <div class="mobile-size-card">
+            <div class="mobile-size-name">3XL</div>
+            <div class="mobile-size-detail">
+              <div>衣長：81</div>
+              <div>胸寬：64</div>
+              <div>肩寬：59</div>
+              <div>袖長：27</div>
+            </div>
+            <div class="mobile-size-recommend">
+              身高 185-195 cm ／ 體重 105-115 kg
+            </div>
+          </div>
+
+          <div class="mobile-size-card">
+            <div class="mobile-size-name">4XL</div>
+            <div class="mobile-size-detail">
+              <div>衣長：83</div>
+              <div>胸寬：68</div>
+              <div>肩寬：62</div>
+              <div>袖長：28</div>
+            </div>
+            <div class="mobile-size-recommend">
+              身高 190-210 cm ／ 體重 115-125 kg
+            </div>
+          </div>
+
+        </div>
+
+        <div class="size-notes">
+          平放尺寸丈量，尺寸容許範圍 ±2～2.5 cm 皆為正常值。
+          <br>
+          身高及體重依常規推薦，僅供參考，實際尺寸請依個人穿著習慣及實物為準。
+        </div>
+      </section>
+
+
+      <!-- 3. 登記內容 -->
+      <section class="card">
+        <h2 class="section-title">登記內容</h2>
+
+        <div
+          id="manualFields"
+          class="hidden"
+        >
+
+          <div class="form-group">
+            <label for="classNameInput">班級</label>
+
+            <input
+              id="classNameInput"
+              type="text"
+              autocomplete="off"
+              placeholder="例如：表一甲"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="nameInput">姓名</label>
+
+            <input
+              id="nameInput"
+              type="text"
+              autocomplete="off"
+              placeholder="請輸入姓名"
+            >
+          </div>
+
+        </div>
+
+        <div
+          id="existingSizeBox"
+          class="existing-size hidden"
+        >
+          目前登記尺寸：
+          <strong id="existingSize"></strong>
+        </div>
+
+        <div class="form-group">
+          <label for="sizeSelect">系服尺寸</label>
+
+          <select id="sizeSelect">
+            <option value="">請選擇尺寸</option>
+            <option value="S">S</option>
+            <option value="M">M</option>
+            <option value="L">L</option>
+            <option value="XL">XL</option>
+            <option value="2XL">2XL</option>
+            <option value="3XL">3XL</option>
+            <option value="4XL">4XL</option>
+          </select>
+        </div>
+
+        <div class="price-box">
+          <div class="price-label">系服費用</div>
+          <div class="price">NT$450</div>
+        </div>
+
+        <button
+          id="submitBtn"
+          class="primary-btn"
+          type="button"
+        >
+          確認登記
+        </button>
+
+        <div
+          id="submitMessage"
+          class="message"
+        ></div>
+
+        <div
+          id="closedBox"
+          class="closed-box hidden"
+        >
+          系服登記目前已截止
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+
+  <div id="successScreen">
+    <div class="success-content">
+
+      <div class="success-title">
+        已登記完成
+      </div>
+
+      <div class="success-subtitle">
+        系統關閉前可更換尺寸
+      </div>
+
+    </div>
+  </div>
+
+
+  <script>
+
+    const API_URL =
+      'https://script.google.com/macros/s/AKfycby2mbLVPRt51qYD12ibSuXWsD8idyPTiWqHVbH9Iz2Hdlhdwj8PwcIAH_AgTBC5xXc/exec';
+
+
+    let currentStudent = null;
+    let registrationOpen = true;
+    let searchLoading = false;
+    let submitLoading = false;
+    let statusLoading = false;
+
+
+    const mainPage =
+      document.getElementById('mainPage');
+
+    const registrationArea =
+      document.getElementById('registrationArea');
+
+    const successScreen =
+      document.getElementById('successScreen');
+
+    const studentIdInput =
+      document.getElementById('studentIdInput');
+
+    const searchBtn =
+      document.getElementById('searchBtn');
+
+    const searchMessage =
+      document.getElementById('searchMessage');
+
+    const studentInfo =
+      document.getElementById('studentInfo');
+
+    const manualFields =
+      document.getElementById('manualFields');
+
+    const classNameInput =
+      document.getElementById('classNameInput');
+
+    const nameInput =
+      document.getElementById('nameInput');
+
+    const existingSizeBox =
+      document.getElementById('existingSizeBox');
+
+    const existingSize =
+      document.getElementById('existingSize');
+
+    const sizeSelect =
+      document.getElementById('sizeSelect');
+
+    const submitBtn =
+      document.getElementById('submitBtn');
+
+    const submitMessage =
+      document.getElementById('submitMessage');
+
+    const closedBox =
+      document.getElementById('closedBox');
+
+
+    async function api(action, data = {}) {
+
+      const response =
+        await fetch(
+          API_URL,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'text/plain;charset=utf-8'
+            },
+            body:
+              JSON.stringify({
+                action: action,
+                ...data
+              })
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error('系統連線失敗');
+      }
+
+      const text =
+        await response.text();
+
+      try {
+        return JSON.parse(text);
+      }
+      catch (error) {
+        console.error(
+          'API response:',
+          text
+        );
+
+        throw new Error(
+          '系統回傳格式錯誤'
+        );
+      }
+
+    }
+
+
+    function clearMessage(element) {
+      element.textContent = '';
+      element.className = 'message';
+    }
+
+
+    function showError(
+      element,
+      message
+    ) {
+      element.textContent =
+        message;
+
+      element.className =
+        'message error';
+    }
+
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+
+    async function searchStudent() {
+
+      if (searchLoading) {
+        return;
+      }
+
+      clearMessage(
+        searchMessage
+      );
+
+      studentIdInput.blur();
+
+      await new Promise(
+        function(resolve) {
+          setTimeout(
+            resolve,
+            350
+          );
+        }
+      );
+
+      const studentId =
+        String(
+          studentIdInput.value || ''
+        ).trim();
+
+      if (!studentId) {
+        showError(
+          searchMessage,
+          '請輸入學號'
+        );
+
+        return;
+      }
+
+      searchLoading = true;
+
+      searchBtn.disabled = true;
+      searchBtn.textContent =
+        '查詢中...';
+
+      try {
+
+        const result =
+          await api(
+            'findStudent',
+            {
+              studentId:
+                studentId
+            }
+          );
+
+        if (!result.success) {
+          throw new Error(
+            result.message ||
+            '查詢失敗'
+          );
+        }
+
+        currentStudent =
+          result;
+
+        registrationOpen =
+          result.registrationOpen
+          !== false;
+
+        renderStudent(
+          result
+        );
+
+        updateRegistrationUI();
+
+        registrationArea
+          .classList
+          .remove('hidden');
+
+        setTimeout(
+          function() {
+            registrationArea
+              .scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+              });
+          },
+          80
+        );
+
+      }
+      catch (error) {
+
+        console.error(
+          error
+        );
+
+        showError(
+          searchMessage,
+          error.message ||
+          '查詢失敗，請稍後再試'
+        );
+
+      }
+      finally {
+
+        searchLoading = false;
+
+        searchBtn.disabled = false;
+        searchBtn.textContent =
+          '查詢';
+
+      }
+
+    }
+
+
+    function renderStudent(
+      student
+    ) {
+
+      clearMessage(
+        submitMessage
+      );
+
+      sizeSelect.value =
+        student.size || '';
+
+      classNameInput.value =
+        student.className || '';
+
+      nameInput.value =
+        student.name || '';
+
+      if (
+        student.manualEntry
+      ) {
+
+        studentInfo.innerHTML =
+
+          '<div class="student-info-row">' +
+            '<div class="student-info-label">學號</div>' +
+            '<div class="student-info-value">' +
+              escapeHtml(
+                student.studentId
+              ) +
+            '</div>' +
+          '</div>' +
+
+          '<div style="margin-top:12px;color:#666;">' +
+            '此學號不在新生名單中，請於下方登記內容填寫班級及姓名。' +
+          '</div>';
+
+        manualFields
+          .classList
+          .remove('hidden');
+
+      }
+
+      else {
+
+        studentInfo.innerHTML =
+
+          '<div class="student-info-row">' +
+            '<div class="student-info-label">學號</div>' +
+            '<div class="student-info-value">' +
+              escapeHtml(
+                student.studentId
+              ) +
+            '</div>' +
+          '</div>' +
+
+          '<div class="student-info-row">' +
+            '<div class="student-info-label">班級</div>' +
+            '<div class="student-info-value">' +
+              escapeHtml(
+                student.className
+              ) +
+            '</div>' +
+          '</div>' +
+
+          '<div class="student-info-row">' +
+            '<div class="student-info-label">姓名</div>' +
+            '<div class="student-info-value">' +
+              escapeHtml(
+                student.name
+              ) +
+            '</div>' +
+          '</div>';
+
+        manualFields
+          .classList
+          .add('hidden');
+
+      }
+
+
+      if (
+        student.existingRecord
+      ) {
+
+        existingSize.textContent =
+          student.size || '-';
+
+        existingSizeBox
+          .classList
+          .remove('hidden');
+
+        submitBtn.textContent =
+          '更新尺寸';
+
+      }
+
+      else {
+
+        existingSize.textContent =
+          '';
+
+        existingSizeBox
+          .classList
+          .add('hidden');
+
+        submitBtn.textContent =
+          '確認登記';
+
+      }
+
+    }
+
+
+    async function submitUniform() {
+
+      if (submitLoading) {
+        return;
+      }
+
+      clearMessage(
+        submitMessage
+      );
+
+      if (!currentStudent) {
+
+        showError(
+          submitMessage,
+          '請先查詢學生資料'
+        );
+
+        return;
+      }
+
+      if (!registrationOpen) {
+
+        showError(
+          submitMessage,
+          '系服登記目前已截止'
+        );
+
+        return;
+      }
+
+      const size =
+        String(
+          sizeSelect.value || ''
+        ).trim();
+
+      if (!size) {
+
+        showError(
+          submitMessage,
+          '請選擇系服尺寸'
+        );
+
+        sizeSelect.focus();
+
+        return;
+      }
+
+      let className =
+        currentStudent.className || '';
+
+      let name =
+        currentStudent.name || '';
+
+      if (
+        currentStudent.manualEntry
+      ) {
+
+        className =
+          String(
+            classNameInput.value || ''
+          ).trim();
+
+        name =
+          String(
+            nameInput.value || ''
+          ).trim();
+
+        if (!className) {
+
+          showError(
+            submitMessage,
+            '請輸入班級'
+          );
+
+          classNameInput.focus();
+
+          return;
+        }
+
+        if (!name) {
+
+          showError(
+            submitMessage,
+            '請輸入姓名'
+          );
+
+          nameInput.focus();
+
+          return;
+        }
+
+      }
+
+      submitLoading = true;
+
+      submitBtn.disabled =
+        true;
+
+      submitBtn.textContent =
+        currentStudent.existingRecord
+        ? '更新中...'
+        : '登記中...';
+
+      try {
+
+        const result =
+          await api(
+            'submitUniform',
+            {
+              studentId:
+                currentStudent.studentId,
+
+              size:
+                size,
+
+              className:
+                className,
+
+              name:
+                name
+            }
+          );
+
+        if (!result.success) {
+          throw new Error(
+            result.message ||
+            '登記失敗'
+          );
+        }
+
+        showSuccessScreen();
+
+      }
+      catch (error) {
+
+        console.error(
+          error
+        );
+
+        showError(
+          submitMessage,
+          error.message ||
+          '登記失敗，請稍後再試'
+        );
+
+        if (
+          String(
+            error.message || ''
+          ).includes(
+            '截止'
+          )
+        ) {
+
+          registrationOpen =
+            false;
+
+          updateRegistrationUI();
+
+        }
+
+      }
+      finally {
+
+        submitLoading =
+          false;
+
+        if (
+          successScreen.style.display
+          !== 'flex'
+        ) {
+
+          submitBtn.disabled =
+            !registrationOpen;
+
+          submitBtn.textContent =
+            currentStudent &&
+            currentStudent.existingRecord
+            ? '更新尺寸'
+            : '確認登記';
+
+        }
+
+      }
+
+    }
+
+
+    function showSuccessScreen() {
+
+      mainPage.style.display =
+        'none';
+
+      successScreen.style.display =
+        'flex';
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'instant'
+      });
+
+    }
+
+
+    function updateRegistrationUI() {
+
+      if (!currentStudent) {
+        return;
+      }
+
+      if (registrationOpen) {
+
+        closedBox
+          .classList
+          .add('hidden');
+
+        submitBtn
+          .classList
+          .remove('hidden');
+
+        submitBtn.disabled =
+          submitLoading;
+
+      }
+
+      else {
+
+        submitBtn
+          .classList
+          .add('hidden');
+
+        closedBox
+          .classList
+          .remove('hidden');
+
+      }
+
+    }
+
+
+    async function syncRegistrationStatus() {
+
+      if (statusLoading) {
+        return;
+      }
+
+      statusLoading =
+        true;
+
+      try {
+
+        const result =
+          await api(
+            'getRegistrationStatus'
+          );
+
+        if (
+          result &&
+          result.success
+        ) {
+
+          registrationOpen =
+            result.open === true;
+
+          updateRegistrationUI();
+
+        }
+
+      }
+      catch (error) {
+
+        console.warn(
+          'Registration status sync failed',
+          error
+        );
+
+      }
+      finally {
+
+        statusLoading =
+          false;
+
+      }
+
+    }
+
+
+    searchBtn.addEventListener(
+      'click',
+      searchStudent
+    );
+
+    submitBtn.addEventListener(
+      'click',
+      submitUniform
+    );
+
+    studentIdInput
+      .addEventListener(
+        'keydown',
+        function(event) {
+
+          if (
+            event.isComposing ||
+            event.keyCode === 229
+          ) {
+            return;
+          }
+
+          if (
+            event.key === 'Enter'
+          ) {
+
+            event.preventDefault();
+
+            searchStudent();
+
+          }
+
+        }
+      );
+
+
+    syncRegistrationStatus();
+
+    setInterval(
+      syncRegistrationStatus,
+      1000
+    );
+
+  </script>
+
+</body>
+</html>
