@@ -24,7 +24,7 @@ r=run('finish',{personId:p.personId});assert.equal(r.live.activePersonId,'');ass
 r=run('retake',{personId:p.personId});assert(r.tasks.filter(t=>t.personId===p.personId).every(t=>t.status==='待補拍'&&t.checked.length===0&&t.notes==='保留備註'));
 const result=run('submitProfile',{...profile,requestId:'test-submission-123456'},'');assert.deepEqual(result,{received:true});run('submitProfile',{...profile,requestId:'test-submission-123456'},'');assert.equal(run('snapshot').inbox.length,1);
 assert.throws(()=>run('savePerson',{profile,shootType:'試鏡照'}),/學號已/);
-const first=run('snapshot'),before=bookReads;run('snapshot');assert.equal(bookReads,before,'cached snapshot must not open the spreadsheet');
+const first=run('snapshot'),before=bookReads;run('snapshot');assert.equal(bookReads,before,'cached snapshot must not open the spreadsheet');run('snapshot',{fresh:true});assert(bookReads>before,'manual refresh must bypass the snapshot cache');
 assert.equal(run('display',{mode:'call'}).person.phone,'0912345678');
 // Legacy combined record migration preserves identifiers, notes and checklist progress.
 vm.runInContext(`cacheClear_();write_('people',{personId:'legacy',studentId:'00001234',name:'舊名單',class:'一乙',shootTypes:'試鏡照＋形象照',checkInStatus:'已報到',queueNo:'A03',phone:'0900000000',heightCm:'170',weightKg:'60'});write_('tasks',{taskId:'legacy-trial',personId:'legacy',shootType:'試鏡照',status:'拍攝中',checkedItems:'["全身正面"]',notes:'trial note'});write_('tasks',{taskId:'legacy-image',personId:'legacy',shootType:'形象照',status:'拍攝中',checkedItems:'["固定姿勢"]',notes:'image note'});write_('checkins',{personId:'legacy',queueNo:'A03',consentStatus:'已完成'});setLive_('activePersonId','legacy','test');`,ctx);

@@ -21,7 +21,7 @@ function table_(k){if(!tableCache_[k]){const sheet=sheet_(k),values=sheet.getDat
 function rows_(k){const t=table_(k);return t.values.map((r,i)=>Object.assign({_row:i+2},...t.headers.map((n,j)=>({[n]:r[j]||''})))).filter(r=>t.headers.some(n=>r[n]));}
 function write_(k,obj,row){const t=table_(k),index=row?row-2:t.values.length,values=t.headers.map((n,i)=>Object.prototype.hasOwnProperty.call(obj,n)?text_(obj[n]):(t.values[index]||[])[i]||'');t.sheet.getRange(index+2,1,1,t.headers.length).setNumberFormat('@').setValues([values.map(safe_)]);t.values[index]=values;}
 function cacheRead_(){try{const c=CacheService.getScriptCache(),meta=JSON.parse(c.get('photo-v2-meta')||'null');if(!meta)return null;let raw='';for(let i=0;i<meta.count;i++){const part=c.get(meta.id+'-'+i);if(part===null)return null;raw+=part;}return JSON.parse(raw);}catch(_){return null;}}
-function cacheWrite_(snapshot){try{const c=CacheService.getScriptCache(),raw=JSON.stringify(snapshot),id='photo-v2-'+Utilities.getUuid(),count=Math.ceil(raw.length/18000),parts={};for(let i=0;i<count;i++)parts[id+'-'+i]=raw.slice(i*18000,(i+1)*18000);c.putAll(parts,4);c.put('photo-v2-meta',JSON.stringify({id,count}),4);}catch(_){}}
+function cacheWrite_(snapshot){try{const c=CacheService.getScriptCache(),raw=JSON.stringify(snapshot),id='photo-v2-'+Utilities.getUuid(),count=Math.ceil(raw.length/18000),parts={};for(let i=0;i<count;i++)parts[id+'-'+i]=raw.slice(i*18000,(i+1)*18000);c.putAll(parts,20);c.put('photo-v2-meta',JSON.stringify({id,count}),20);}catch(_){}}
 function cacheClear_(){try{CacheService.getScriptCache().remove('photo-v2-meta');}catch(_){}}
 function json_(data){return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);}
 function doGet(){return json_({ok:true,version:VERSION,status:'online'});}
@@ -44,7 +44,7 @@ function dispatch_(d){
   try{const requestId=text_(d.requestId);if(!/^[a-zA-Z0-9-]{16,80}$/.test(requestId))throw Error('請重新整理頁面後再送出');if(rows_('inbox').some(r=>r.submissionId===requestId))return {received:true};const pending=rows_('inbox').filter(r=>r.status==='待核對'&&r.studentId===p.studentId&&r.name===p.name);if(pending.length>=3)throw Error('已收到資料，請至報到區核對');cacheClear_();write_('inbox',Object.assign(p,{submissionId:requestId,submittedAt:now_(),status:'待核對'}));return {received:true};}finally{lock.releaseLock();}
  }
  auth_(d.password);
- if(d.action==='snapshot'){const cached=cacheRead_();if(cached)return cached;const readLock=LockService.getScriptLock();readLock.waitLock(20000);try{return cacheRead_()||snapshot_();}finally{readLock.releaseLock();}}
+ if(d.action==='snapshot'){const cached=cacheRead_();if(cached&&!d.fresh)return cached;const readLock=LockService.getScriptLock();readLock.waitLock(20000);try{if(d.fresh){cacheClear_();return snapshot_();}return cacheRead_()||snapshot_();}finally{readLock.releaseLock();}}
  if(d.action==='display'){const cached=cacheRead_(),live=cached?cached.live:live_(),ps=cached?cached.people:rows_('people'),person=ps.find(p=>p.personId===(d.mode==='slate'?live.activePersonId:live.calledPersonId));return {live,person:person?{personId:person.personId,studentId:person.studentId,name:person.name,class:person.class,heightCm:person.heightCm,weightKg:person.weightKg,phone:person.phone,shootTypes:person.shootTypes,queueNo:person.queueNo}:null,updatedAt:cached?cached.updatedAt:now_()};}
  const lock=LockService.getScriptLock();lock.waitLock(20000);
  try{
