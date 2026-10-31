@@ -1,4 +1,4 @@
-name: Publish CUFA API test to GitHub Pages
+name: Deploy CUFA Photo Control
 on:
   push:
     branches: [main]
@@ -18,11 +18,16 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify application
+        run: |
+          node --check app.js
+          node tests/backend.test.cjs
       - uses: actions/configure-pages@v5
       - name: Prepare static pages
         run: |
           mkdir -p public
-          cp index.html admin.html pickup.html api-test.html public/
+          cp index.html admin.html pickup.html api-test.html app.js config.js style.css public/
+          touch public/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
