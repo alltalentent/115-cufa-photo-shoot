@@ -1,0 +1,27 @@
+# CUFA PHOTO CONTROL
+
+Google Sheets + Apps Script + GitHub Pages 的拍攝現場工作站。
+
+- `index.html`：總控台
+- `index.html?view=checkin`：報到台（唯一可新增人員的入口）
+- `index.html?view=student`：手機資料填寫，盲送待核對區，不提供名單查詢
+- `index.html?view=slate`：棚內電子試鏡單，學號與姓名最大
+- `index.html?view=call`：姓名叫號，與棚內拍攝狀態分開
+
+## 後端
+
+`apps-script/Code.gs` 對應原始拍攝表格 `1EhDDUVQ-Jvn9v9LXLLYYemBBlZ7dcEZAmfJQrJ6XJpw`。初始化函式 `setupPhotoControl` 僅補上缺少的工作表與欄位，保留原始名單與既有 `ADMIN_PASSWORD` Script Property。先執行初始化與 `testPhotoConnection`，再部署新版本，將 Web App URL 寫入 `config.js`。
+
+Apps Script 必須以擁有者執行，允許未登入者呼叫，才可從 GitHub Pages 送出表單。後端只開放驗證格式後的學生資料送出；完整名單、電子試鏡單、叫號與所有工作操作均須通過 `ADMIN_PASSWORD`。密碼只留在 Script Properties 與工作站 sessionStorage，不放入版本庫。工作站閒置後請登出或關閉分頁。
+
+學生送出不是報到。工作人員核對待核對資料並儲存後，再按報到發號。重複報到保留原號碼。形象照需同意書檢核才能報到及拍攝；勾滿所有拍攝項目後才可完成。補拍會重設勾選，保留備註。暫緩與回待拍不改號碼。
+
+`ActivityLogs` 保留時間、操作與工作站名稱（共享密碼下的工作站名稱不是經身分驗證的個人帳號）。號碼分配與狀態寫入使用 Script Lock 避免多工作站重複發號。Sheets 多列寫入並非資料庫交易；網路失敗後應重新同步確認。學生表單以 requestId 避免同一次送出重試重複新增。
+
+每六秒讀取同步，編輯備註時暫停重繪。儲存一組任務時會一起儲存目前所有任務，避免其他備註遺失。斷線顯示同步中斷；拍攝前請確認試鏡單最新時間。
+
+## 驗證
+
+`node tests/backend.test.cjs` 驗證密碼、同意書、發號、重複報到、叫號／棚內分離、完成門檻、補拍及表單冪等性。使用合成測試人員，不修改正式名單。
+
+首版限制：單一攝影棚、共享工作人員密碼、六秒輪詢；未提供離線操作與個別角色帳號。學生表單不等同電子簽署，同意書需現場另外檢核。

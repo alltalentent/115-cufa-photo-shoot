@@ -1,0 +1,24 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+class Sheet{constructor(rows=[]){this.rows=rows;}getLastColumn(){return Math.max(0,...this.rows.map(r=>r.length));}getLastRow(){return this.rows.length;}getDataRange(){return this.getRange(1,1,Math.max(1,this.rows.length),Math.max(1,this.getLastColumn()));}getRange(r,c,n=1,m=1){const s=this;return {getDisplayValues(){return Array.from({length:n},(_,i)=>Array.from({length:m},(_,j)=>String(s.rows[r-1+i]?.[c-1+j]??'')));},setValue(v){s.rows[r-1]??=[];s.rows[r-1][c-1]=v;return this;},setBackground(){return this;},setFontWeight(){return this;}};}appendRow(r){this.rows.push(r);}setFrozenRows(){}setColumnWidths(){}}
+const sheets=new Map(),book={getSheetByName:n=>sheets.get(n),insertSheet:n=>{const s=new Sheet();sheets.set(n,s);return s;},setSpreadsheetTimeZone(){},getName:()=> 'Test'};let id=0;
+const ctx=vm.createContext({console,SpreadsheetApp:{openById:()=>book},PropertiesService:{getScriptProperties:()=>({getProperty:()=> 'test-secret'})},Utilities:{formatDate:()=> '2026-10-31 20:00:00',getUuid:()=> 'uuid-'+(++id)},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},ContentService:{MimeType:{JSON:'json'},createTextOutput:s=>({setMimeType:()=>JSON.parse(s)})}});
+vm.runInContext(fs.readFileSync(__dirname+'/../apps-script/Code.gs','utf8'),ctx);vm.runInContext('setupPhotoControl()',ctx);
+const run=(action,body={},password='test-secret')=>JSON.parse(JSON.stringify(ctx.dispatch_({action,password,...body})));
+const profile={studentId:'12345678',name:'測試甲',class:'一甲',heightCm:'170',weightKg:'60',phone:'0912345678'};
+assert.throws(()=>run('snapshot',{},'wrong'),/密碼/);
+let r=run('savePerson',{profile,shootTypes:['試鏡照','形象照']}),p=r.people[0];
+assert.throws(()=>run('checkIn',{personId:p.personId}),/同意書/);
+r=run('checkIn',{personId:p.personId,consent:true});assert.equal(r.people[0].queueNo,'A01');
+r=run('checkIn',{personId:p.personId,consent:true});assert.equal(r.people[0].queueNo,'A01');assert.equal(r.checkins.length,1);
+r=run('savePerson',{profile:{...profile,studentId:'12345679',name:'測試乙'},shootTypes:['試鏡照']});const p2=r.people[1];
+r=run('checkIn',{personId:p2.personId});assert.equal(r.people[1].queueNo,'A02');
+run('call',{personId:p2.personId});r=run('start',{personId:p.personId});assert.equal(r.live.calledPersonId,p2.personId);assert.equal(r.live.activePersonId,p.personId);
+assert.throws(()=>run('start',{personId:p2.personId}),/棚內仍有/);
+assert.throws(()=>run('finish',{personId:p.personId}),/勾選/);
+for(const t of r.tasks.filter(t=>t.personId===p.personId))run('saveTask',{personId:p.personId,taskId:t.taskId,checked:t.items,notes:'保留備註'});
+r=run('finish',{personId:p.personId});assert.equal(r.live.activePersonId,'');assert.equal(r.live.calledPersonId,p2.personId);
+r=run('retake',{personId:p.personId});assert(r.tasks.filter(t=>t.personId===p.personId).every(t=>t.status==='待補拍'&&t.checked.length===0&&t.notes==='保留備註'));
+const result=run('submitProfile',{...profile,requestId:'test-submission-123456'},'');assert.deepEqual(result,{received:true});run('submitProfile',{...profile,requestId:'test-submission-123456'},'');assert.equal(run('snapshot').inbox.length,1);
+assert.throws(()=>run('savePerson',{profile,shootTypes:['試鏡照']}),/學號已/);
+assert.equal(ctx.safe_('=IMPORTXML("x")'),"'=IMPORTXML(\"x\")");
+console.log('PASS: authentication, consent, stable queue numbers, duplicate prevention, independent call/slate, single active shooter, checklist completion, retake, blind idempotent submission, formula escaping');
