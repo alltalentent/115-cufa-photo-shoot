@@ -18,7 +18,7 @@ function now_(){return Utilities.formatDate(new Date(),'Asia/Taipei','yyyy-MM-dd
 function text_(x){return String(x==null?'':x).trim();}
 function safe_(x){const s=String(x==null?'':x);return /^[=+@\-]/.test(s)?"'"+s:s;}
 function rows_(k){const s=sheet_(k),v=s.getDataRange().getDisplayValues(),h=v.shift();return v.map((r,i)=>Object.assign({_row:i+2},...h.map((n,j)=>({[n]:r[j]})))).filter(r=>h.some(n=>r[n]));}
-function write_(k,obj,row){const s=sheet_(k),h=s.getRange(1,1,1,s.getLastColumn()).getDisplayValues()[0];if(row){const range=s.getRange(row,1,1,h.length),values=range.getValues()[0],formulas=range.getFormulas()[0];h.forEach((n,i)=>{values[i]=Object.prototype.hasOwnProperty.call(obj,n)?safe_(obj[n]):formulas[i]||values[i];});range.setValues([values]);}else{s.appendRow(h.map(n=>safe_(obj[n])));}}
+function write_(k,obj,row){const s=sheet_(k),h=s.getRange(1,1,1,s.getLastColumn()).getDisplayValues()[0];if(row){const range=s.getRange(row,1,1,h.length),values=range.getValues()[0],formulas=range.getFormulas()[0];h.forEach((n,i)=>{values[i]=Object.prototype.hasOwnProperty.call(obj,n)?safe_(obj[n]):formulas[i]||values[i];});range.setNumberFormat('@').setValues([values]);}else{s.getRange(s.getLastRow()+1,1,1,h.length).setNumberFormat('@').setValues([h.map(n=>safe_(obj[n]))]);}}
 function json_(data){return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);}
 function doGet(){return json_({ok:true,version:VERSION,status:'online'});}
 function doPost(e){try{return json_({ok:true,data:dispatch_(JSON.parse(e.postData.contents))});}catch(err){return json_({ok:false,error:err.message||'操作失敗'});}}
