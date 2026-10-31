@@ -21,12 +21,13 @@ jobs:
       - name: Verify application
         run: |
           node --check app.js
+          node --check schedule.js
           node tests/backend.test.cjs
       - uses: actions/configure-pages@v5
       - name: Prepare static pages
         run: |
           mkdir -p public
-          cp index.html admin.html pickup.html api-test.html app.js config.js style.css public/
+          cp index.html admin.html pickup.html api-test.html app.js schedule.js config.js style.css public/
           touch public/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
