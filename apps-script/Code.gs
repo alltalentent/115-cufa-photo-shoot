@@ -80,6 +80,7 @@ function saveCheckin_(d,op,people,tasks,checkins,p){
 }
 function taskUpdates_(mine,updates,complete){if(!Array.isArray(updates))throw Error('缺少拍攝項目');const seen=new Set();const clean=updates.map(u=>{const t=mine.find(t=>t.taskId===u.taskId);if(!t||seen.has(u.taskId))throw Error('拍攝任務不正確');seen.add(u.taskId);const items=taskItems_(t);if(!Array.isArray(u.checked)||u.checked.some(x=>!items.includes(x)))throw Error('拍攝項目不正確');const checked=Array.from(new Set(u.checked));if(complete&&checked.length!==items.length)throw Error('請先勾選所有拍攝項目');return {t,checked,notes:text_(u.notes).slice(0,2000)};});if(complete&&seen.size!==mine.length)throw Error('請確認所有拍攝任務');return clean;}
 function dispatch_(d){
+ if(PropertiesService.getScriptProperties().getProperty('SYNC_PAUSED')!=='false')throw Error('同步已暫停：正在編輯名單與流程，請等待重新啟用');
  tableCache_={};cachedBook_=null;stableSnapshot_=null;pendingSheetWrites_=false;fastMetadata_=null;pendingLogs_=[];
  if(d.action==='submitProfile'){
   const p=profile_(d),lock=LockService.getScriptLock();lock.waitLock(15000);
@@ -147,3 +148,7 @@ function splitShootWorkflows(){
 
 // Run from the owner editor: hold the same lock as check-in/shooting writes while moving columns.
 function organizePhotoRoster(){stableSnapshot_=null;const lock=LockService.getScriptLock();lock.waitLock(20000);try{tableCache_={};cachedBook_=null;cacheClear_();const sh=sheet_('people'),labels=Object.keys(ROSTER_HEADERS),keys=labels.map(x=>ROSTER_HEADERS[x]);let headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(x=>ROSTER_HEADERS[x]||x);if(headers.some(x=>x&&!keys.includes(x)))throw Error('名單包含未知欄位，已停止整理');const before=rows_('people').map(p=>p.personId).sort().join('|');for(const key of keys)if(!headers.includes(key)){sh.getRange(1,headers.length+1).setValue(key);headers.push(key);}for(let i=0;i<keys.length;i++){const j=headers.indexOf(keys[i]);if(j!==i){sh.moveColumns(sh.getRange(1,j+1),i+1);headers.splice(i,0,headers.splice(j,1)[0]);}}sh.getRange(1,1,1,labels.length).setValues([labels]);SpreadsheetApp.flush();tableCache_={};const after=rows_('people').map(p=>p.personId).sort().join('|');if(before!==after)throw Error('識別碼核對不一致');const snap=snapshot_();console.log(JSON.stringify({organized:true,people:snap.people.length,tasks:snap.tasks.length,idsPreserved:true}));return true;}finally{lock.releaseLock();}}
+
+// Owner-only editor controls; no public API route can resume synchronization.
+function resumePhotoSync(){const lock=LockService.getScriptLock();lock.waitLock(20000);try{cacheClear_();PropertiesService.getScriptProperties().setProperty('SYNC_PAUSED','false');console.log('同步已恢復');}finally{lock.releaseLock();}}
+function pausePhotoSync(){const lock=LockService.getScriptLock();lock.waitLock(20000);try{PropertiesService.getScriptProperties().setProperty('SYNC_PAUSED','true');cacheClear_();console.log('同步已暫停');}finally{lock.releaseLock();}}
