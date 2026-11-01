@@ -16,3 +16,5 @@
 .screen-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}#callSound[aria-pressed="true"]{color:var(--accent);border-color:#536345}
 
 .sound-volume{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--muted)}.sound-volume select{width:90px;min-height:40px;padding:7px 10px}
+
+:root:fullscreen #callSound,:root:fullscreen .sound-volume,:root:fullscreen #testCallSound{display:none!important}
