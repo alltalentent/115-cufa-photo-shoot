@@ -1,6 +1,6 @@
 /* CUFA PHOTO CONTROL — 2026-10-31. No credentials belong in this file. */
 const DB_ID = '1EhDDUVQ-Jvn9v9LXLLYYemBBlZ7dcEZAmfJQrJ6XJpw';
-const VERSION = 'photo-control-20261101-v4';
+const VERSION = 'photo-control-20261101-v5';
 const CLASSES = ['一甲','一乙','一丙','二甲','二乙','二丙','三甲','三乙','三丙','四甲','四乙','四丙','老師'];
 const SHOTS = {'試鏡照':['全身正面','半身正面','半身側面','個人發揮'],'形象照':['個人發揮','固定姿勢']};
 const TABS = {people:'拍攝學生名單',tasks:'ShootTasks',checkins:'CheckIns',live:'LiveControl',logs:'ActivityLogs',inbox:'RegistrationInbox',schedule:'拍攝流程'};
@@ -16,37 +16,39 @@ function queueNo_(value){const raw=text_(value);if(!raw)return '';const n=raw.re
 function slotMinute_(value){const s=text_(value).replace(':','');if(!/^\d{3,4}$/.test(s))return null;const n=s.padStart(4,'0'),h=+n.slice(0,2),m=+n.slice(2);return h<24&&m<60?h*60+m:null;}
 function slotTime_(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
 function slotLabel_(p,schedule){const found=schedule.filter(s=>{if(s.kind==='老師')return p.class==='老師';if(s.kind==='個人')return p.shootTypes==='形象照'&&p.name===s.title;if(s.kind==='班級'){const c=text_(s.title).match(/[一二三四][甲乙丙]/);return !!c&&p.class===c[0]&&text_(s.title).includes(p.shootTypes==='試鏡照'?'試鏡':'形象');}return false;});return Array.from(new Set(found.map(s=>{const a=slotMinute_(s.start),b=slotMinute_(s.end);return a===null||b===null?'隨到隨拍':slotTime_(a)+'–'+slotTime_(b);}))).join('、')||(p.class==='老師'?'隨到隨拍':'時段待安排');}
-let cachedBook_, tableCache_ = {};
+let cachedBook_, tableCache_ = {}, stableSnapshot_ = null, pendingSheetWrites_ = false;
 function book_(){return cachedBook_||(cachedBook_=SpreadsheetApp.openById(DB_ID));}
 function sheet_(key){if(tableCache_[key])return tableCache_[key].sheet;const s=book_().getSheetByName(TABS[key]);if(!s)throw Error('缺少資料表');return s;}
 function now_(){return Utilities.formatDate(new Date(),'Asia/Taipei','yyyy-MM-dd HH:mm:ss');}
 function text_(x){return String(x==null?'':x).trim();}
 function safe_(x){const s=String(x==null?'':x);return /^[=+@\-]/.test(s)?"'"+s:s;}
-function table_(k){if(!tableCache_[k]){const sheet=sheet_(k),values=sheet.getDataRange().getDisplayValues(),headers=values.shift().map(h=>k==='people'?(ROSTER_HEADERS[h]||h):h);tableCache_[k]={sheet,headers,values};}return tableCache_[k];}
+function table_(k){if(!tableCache_[k]){const sheet=sheet_(k),values=sheet.getDataRange().getDisplayValues(),headers=values.shift().map(h=>k==='people'?(ROSTER_HEADERS[h]||h):h);tableCache_[k]={sheet,headers,values,initialLength:values.length};}return tableCache_[k];}
 function rows_(k){const t=table_(k);return t.values.map((r,i)=>Object.assign({_row:i+2},...t.headers.map((n,j)=>({[n]:r[j]||''})))).filter(r=>t.headers.some(n=>r[n]));}
 function write_(k,obj,row){const t=table_(k),index=row?row-2:t.values.length,values=t.headers.map((n,i)=>Object.prototype.hasOwnProperty.call(obj,n)?text_(obj[n]):(t.values[index]||[])[i]||'');t.values[index]=values;(t.dirty||(t.dirty=new Set())).add(index);}
-function flush_(){for(const k of Object.keys(tableCache_)){const t=tableCache_[k];if(!t.dirty?.size)continue;const first=Math.min(...t.dirty),last=Math.max(...t.dirty);t.sheet.getRange(first+2,1,last-first+1,t.headers.length).setNumberFormat('@').setValues(t.values.slice(first,last+1).map(row=>t.headers.map((_,i)=>safe_(row[i]||''))));t.dirty.clear();}}
-function cacheRead_(){try{const c=CacheService.getScriptCache(),meta=JSON.parse(c.get('photo-v2-meta')||'null');if(!meta)return null;let raw='';for(let i=0;i<meta.count;i++){const part=c.get(meta.id+'-'+i);if(part===null)return null;raw+=part;}return JSON.parse(raw);}catch(_){return null;}}
-function cacheWrite_(snapshot){try{const c=CacheService.getScriptCache(),raw=JSON.stringify(snapshot),id='photo-v2-'+Utilities.getUuid(),count=Math.ceil(raw.length/18000),parts={};for(let i=0;i<count;i++)parts[id+'-'+i]=raw.slice(i*18000,(i+1)*18000);c.putAll(parts,20);c.put('photo-v2-meta',JSON.stringify({id,count}),20);}catch(_){}}
-function cacheClear_(){try{CacheService.getScriptCache().remove('photo-v2-meta');}catch(_){}}
+function flush_(){for(const k of Object.keys(tableCache_)){const t=tableCache_[k];if(!t.dirty?.size)continue;const first=Math.min(...t.dirty),last=Math.max(...t.dirty);const range=t.sheet.getRange(first+2,1,last-first+1,t.headers.length);if(last>=t.initialLength)range.setNumberFormat('@');range.setValues(t.values.slice(first,last+1).map(row=>t.headers.map((_,i)=>safe_(row[i]||''))));pendingSheetWrites_=true;t.initialLength=t.values.length;t.dirty.clear();}}
+function commitSheets_(){flush_();if(pendingSheetWrites_){SpreadsheetApp.flush();pendingSheetWrites_=false;}}
+function cacheRead_(){try{const c=CacheService.getScriptCache(),meta=JSON.parse(c.get('photo-v5-meta')||'null');if(!meta)return null;const keys=Array.from({length:meta.count},(_,i)=>meta.id+'-'+i),parts=c.getAll(keys);let raw='';for(const key of keys){if(typeof parts[key]!=='string')return null;raw+=parts[key];}return JSON.parse(raw);}catch(_){return null;}}
+function cacheWrite_(snapshot){try{const c=CacheService.getScriptCache(),raw=JSON.stringify(snapshot),id='photo-v5-'+Utilities.getUuid(),count=Math.ceil(raw.length/18000),parts={};for(let i=0;i<count;i++)parts[id+'-'+i]=raw.slice(i*18000,(i+1)*18000);c.putAll(parts,20);c.put('photo-v5-meta',JSON.stringify({id,count}),20);}catch(_){}}
+function cacheClear_(){try{CacheService.getScriptCache().remove('photo-v5-meta');}catch(_){}}
 function json_(data){return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);}
 function doGet(){return json_({ok:true,version:VERSION,status:'online'});}
-function doPost(e){try{return json_({ok:true,data:dispatch_(JSON.parse(e.postData.contents))});}catch(err){return json_({ok:false,error:err.message||'操作失敗'});}}
+function doPost(e){const started=Date.now();try{const request=JSON.parse(e.postData.contents),result=dispatch_(request);return json_({ok:true,data:compactReply_(request,result),serverMs:Date.now()-started});}catch(err){return json_({ok:false,error:err.message||'操作失敗'});}}
 function auth_(p){const expected=PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');if(!expected)throw Error('尚未設定工作人員密碼');if(typeof p!=='string'||p!==expected)throw Error('工作人員密碼錯誤');}
 function setupPhotoControl(){const b=book_();Object.keys(HEADERS).forEach(k=>{let s=b.getSheetByName(TABS[k]);if(!s)s=b.insertSheet(TABS[k]);const h=s.getLastColumn()?s.getRange(1,1,1,s.getLastColumn()).getDisplayValues()[0].map(n=>k==='people'?(ROSTER_HEADERS[n]||n):n):[];HEADERS[k].filter(n=>!h.includes(n)).forEach((n,i)=>s.getRange(1,h.length+i+1).setValue(n));s.setFrozenRows(1);s.getRange(1,1,1,HEADERS[k].length).setBackground('#eeeeee').setFontWeight('bold');s.setColumnWidths(1,HEADERS[k].length,145);});b.setSpreadsheetTimeZone('Asia/Taipei');console.log('拍攝系統初始化完成；名單 '+rows_('people').length+' 人。保留原始名單與密碼。');}
 function clean_(o){const c=Object.assign({},o);delete c._row;return c;}
 function live_(){return Object.fromEntries(rows_('live').map(r=>[r.key,r.value]));}
-function setLive_(key,value,op){const r=rows_('live').find(r=>r.key===key);write_('live',{key,value,updatedAt:now_(),operator:op},r&&r._row);}
+function setLive_(key,value,op){const r=rows_('live').find(r=>r.key===key);if(r&&r.value===String(value))return;write_('live',{key,value,updatedAt:now_(),operator:op},r&&r._row);}
 function taskItems_(t){return SHOTS[t.shootType]||text_(t.checklist).split('／').filter(Boolean);}
 function checked_(t){try{const v=JSON.parse(t.checkedItems||'[]');return Array.isArray(v)?v:[];}catch(_){return text_(t.checkedItems).split('／').filter(Boolean);}}
-function snapshot_(){const people=rows_('people'),tasks=rows_('tasks'),checkins=rows_('checkins'),live=live_(),schedule=book_().getSheetByName(TABS.schedule)?rows_('schedule').map(clean_):[];
+function snapshot_(){const people=rows_('people'),tasks=rows_('tasks'),checkins=rows_('checkins'),live=live_(),schedule=stableSnapshot_?.schedule||(book_().getSheetByName(TABS.schedule)?rows_('schedule').map(clean_):[]);
  for(const ci of checkins){const no=queueNo_(ci.queueNo);if(no!==ci.queueNo){write_('checkins',{queueNo:no},ci._row);ci.queueNo=no;}}
  for(const p of people){const mine=tasks.filter(t=>t.personId===p.personId&&t.status!=='取消'),ci=checkins.find(c=>c.personId===p.personId),status=p.checkInStatus==='請假'?'請假':mine.length&&mine.every(t=>t.status==='已完成')?'已完成':live.activePersonId===p.personId?'拍攝中':calledQueue_(live).includes(p.personId)?'正在叫號':mine.some(t=>t.status==='待補拍')?'待補拍':p.checkInStatus==='已報到'?'待拍攝':'未報到';
  const summary={queueNo:queueNo_(p.queueNo),shootSlot:slotLabel_(p,schedule),shootStatus:status,shootNotes:mine.filter(t=>t.notes).map(t=>mine.length>1?t.shootType+'：'+t.notes:t.notes).join('；'),consentReceived:p.shootTypes==='形象照'?(ci&&ci.consentStatus==='已完成'?'已收件':'未收件'):'不適用'};
  const changes={};for(const key of Object.keys(summary))if(p[key]!==summary[key])changes[key]=summary[key];if(Object.keys(changes).length)write_('people',changes,p._row);Object.assign(p,summary);}
- flush_();const snapshot={version:VERSION,people:people.map(clean_),tasks:tasks.map(t=>Object.assign(clean_(t),{items:taskItems_(t),checked:checked_(t)})),checkins:checkins.map(clean_),live,schedule,inbox:rows_('inbox').filter(r=>r.status==='待核對').map(clean_),updatedAt:now_()};cacheWrite_(snapshot);return snapshot;}
+ commitSheets_();const snapshot={version:VERSION,revision:Utilities.getUuid(),people:people.map(clean_),tasks:tasks.map(t=>Object.assign(clean_(t),{items:taskItems_(t),checked:checked_(t)})),checkins:checkins.map(clean_),live,schedule,inbox:!tableCache_.inbox&&stableSnapshot_?stableSnapshot_.inbox:rows_('inbox').filter(r=>r.status==='待核對').map(clean_),updatedAt:now_()};cacheWrite_(snapshot);return snapshot;}
+function compactReply_(request,result){const previous=stableSnapshot_;if(!request.compact||!previous?.revision||request.knownRevision!==previous.revision||!result?.people||!result.tasks)return result;const changed=(key,id)=>{const old=new Map((previous[key]||[]).map(v=>[v[id],JSON.stringify(v)]));return result[key].filter(v=>old.get(v[id])!==JSON.stringify(v));};return {patch:true,baseRevision:previous.revision,revision:result.revision,updatedAt:result.updatedAt,version:result.version,live:result.live,people:changed('people','personId'),tasks:changed('tasks','taskId'),checkins:changed('checkins','personId'),inbox:result.inbox,receipt:result.receipt};}
 function profile_(d){const p={studentId:text_(d.studentId),name:text_(d.name),class:text_(d.class),heightCm:text_(d.heightCm),weightKg:text_(d.weightKg),phone:text_(d.phone)};if(!CLASSES.includes(p.class)||!p.name||p.name.length>50)throw Error('請填寫正確班級及姓名');if(p.class!=='老師'&&!/^[A-Za-z0-9]{4,20}$/.test(p.studentId))throw Error('請確認學號');if(p.class==='老師'&&p.studentId&&!/^[A-Za-z0-9]{1,20}$/.test(p.studentId))throw Error('識別碼格式不正確');if(!(Number(p.heightCm)>=80&&Number(p.heightCm)<=250))throw Error('身高請填 80–250 cm');if(!(Number(p.weightKg)>=20&&Number(p.weightKg)<=250))throw Error('體重請填 20–250 kg');if(!/^\+?[0-9 ()-]{8,20}$/.test(p.phone))throw Error('請確認行動電話');return p;}
-function logAction_(action,id,op,detail){const sh=sheet_('logs');sh.getRange(sh.getLastRow()+1,1,1,5).setNumberFormat('@').setValues([[now_(),action,id,op,JSON.stringify(detail||{})].map(safe_)]);}
+function logAction_(action,id,op,detail){sheet_('logs').appendRow([now_(),action,id,op,JSON.stringify(detail||{})].map(safe_));pendingSheetWrites_=true;}
 function ready_(p,tasks,checkins){if(p.checkInStatus!=='已報到')throw Error('此人尚未報到或已請假');const ts=tasks.filter(t=>t.personId===p.personId);if(!ts.length)throw Error('尚未設定拍攝任務');if(ts.some(t=>t.shootType==='形象照')&&!checkins.some(c=>c.personId===p.personId&&c.consentStatus==='已完成'))throw Error('請先在報到區檢核肖像權同意書');}
 function calledQueue_(live){let q=[];try{q=JSON.parse(live.callQueue||'[]');}catch(_){}if(!Array.isArray(q))q=[];return Array.from(new Set([live.calledPersonId,...q].filter(Boolean)));}
 function setCalledQueue_(q,op){setLive_('callQueue',JSON.stringify(q),op);setLive_('calledPersonId',q[0]||'',op);}
@@ -65,21 +67,21 @@ function saveCheckin_(d,op,people,tasks,checkins,p){
  tasks.filter(t=>t.personId===id&&['待報到','請假'].includes(t.status)).forEach(t=>write_('tasks',{status:'待拍攝',updatedAt:now_()},t._row));
  write_('checkins',{personId:id,queueNo:no,checkedAt:ci?ci.checkedAt:now_(),operator:op,consentStatus:type==='形象照'?'已完成':'不適用'},ci&&ci._row);
  if(d.submissionId){const row=rows_('inbox').find(x=>x.submissionId===d.submissionId);if(row)write_('inbox',{status:'已核對'},row._row);}
- logAction_('saveCheckIn',id,op);return Object.assign(snapshot_(),{receipt:{personId:id,name:v.name,queueNo:queueNo_(no),shootType:type,shootSlot:slotLabel_(Object.assign({},v,{shootTypes:type}),book_().getSheetByName(TABS.schedule)?rows_('schedule'):[])}});
+ logAction_('saveCheckIn',id,op);const result=snapshot_();result.receipt={personId:id,name:v.name,queueNo:queueNo_(no),shootType:type,shootSlot:result.people.find(x=>x.personId===id).shootSlot};return result;
 }
 function taskUpdates_(mine,updates,complete){if(!Array.isArray(updates))throw Error('缺少拍攝項目');const seen=new Set();const clean=updates.map(u=>{const t=mine.find(t=>t.taskId===u.taskId);if(!t||seen.has(u.taskId))throw Error('拍攝任務不正確');seen.add(u.taskId);const items=taskItems_(t);if(!Array.isArray(u.checked)||u.checked.some(x=>!items.includes(x)))throw Error('拍攝項目不正確');const checked=Array.from(new Set(u.checked));if(complete&&checked.length!==items.length)throw Error('請先勾選所有拍攝項目');return {t,checked,notes:text_(u.notes).slice(0,2000)};});if(complete&&seen.size!==mine.length)throw Error('請確認所有拍攝任務');return clean;}
 function dispatch_(d){
- tableCache_={};cachedBook_=null;
+ tableCache_={};cachedBook_=null;stableSnapshot_=null;pendingSheetWrites_=false;
  if(d.action==='submitProfile'){
   const p=profile_(d),lock=LockService.getScriptLock();lock.waitLock(15000);
-  try{const requestId=text_(d.requestId);if(!/^[a-zA-Z0-9-]{16,80}$/.test(requestId))throw Error('請重新整理頁面後再送出');if(rows_('inbox').some(r=>r.submissionId===requestId))return {received:true};const pending=rows_('inbox').filter(r=>r.status==='待核對'&&r.studentId===p.studentId&&r.name===p.name);if(pending.length>=3)throw Error('已收到資料，請至報到區核對');cacheClear_();write_('inbox',Object.assign(p,{submissionId:requestId,submittedAt:now_(),status:'待核對'}));flush_();return {received:true};}finally{lock.releaseLock();}
+  try{const requestId=text_(d.requestId);if(!/^[a-zA-Z0-9-]{16,80}$/.test(requestId))throw Error('請重新整理頁面後再送出');if(rows_('inbox').some(r=>r.submissionId===requestId))return {received:true};const pending=rows_('inbox').filter(r=>r.status==='待核對'&&r.studentId===p.studentId&&r.name===p.name);if(pending.length>=3)throw Error('已收到資料，請至報到區核對');cacheClear_();write_('inbox',Object.assign(p,{submissionId:requestId,submittedAt:now_(),status:'待核對'}));commitSheets_();return {received:true};}finally{lock.releaseLock();}
  }
  auth_(d.password);
  if(d.action==='snapshot'){const cached=cacheRead_();if(cached&&!d.fresh)return cached;const readLock=LockService.getScriptLock();readLock.waitLock(20000);try{if(d.fresh){cacheClear_();return snapshot_();}return cacheRead_()||snapshot_();}finally{readLock.releaseLock();}}
  if(d.action==='display'){const cached=cacheRead_(),live=cached?cached.live:live_(),ps=cached?cached.people:rows_('people'),person=ps.find(p=>p.personId===(d.mode==='slate'?live.activePersonId:live.calledPersonId));return {live,person:person?{personId:person.personId,studentId:person.studentId,name:person.name,class:person.class,heightCm:person.heightCm,weightKg:person.weightKg,phone:person.phone,shootTypes:person.shootTypes,queueNo:queueNo_(person.queueNo),shootSlot:person.shootSlot||slotLabel_(person,book_().getSheetByName(TABS.schedule)?rows_('schedule'):[])}:null,updatedAt:cached?cached.updatedAt:now_()};}
  const lock=LockService.getScriptLock();lock.waitLock(20000);
  try{
- cacheClear_();
+ stableSnapshot_=cacheRead_();cacheClear_();
  const op=text_(d.operator).slice(0,40)||'工作人員',people=rows_('people'),tasks=rows_('tasks'),checkins=rows_('checkins'),live=live_();let p=people.find(p=>p.personId===d.personId);
  if(d.action==='saveCheckIn')return saveCheckin_(d,op,people,tasks,checkins,p);
  if(d.action==='savePerson'){
@@ -121,7 +123,7 @@ function dispatch_(d){
 function testPhotoConnection(){const b=book_();console.log(JSON.stringify({version:VERSION,title:b.getName(),people:rows_('people').length,tasks:rows_('tasks').length,configured:!!PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD')}));}
 
 function splitShootWorkflows(){
- tableCache_={};cachedBook_=null;const lock=LockService.getScriptLock();lock.waitLock(20000);
+ stableSnapshot_=null;tableCache_={};cachedBook_=null;const lock=LockService.getScriptLock();lock.waitLock(20000);
  try{cacheClear_();const people=rows_('people'),tasks=rows_('tasks'),checkins=rows_('checkins'),live=live_();let next=Math.max(0,...people.map(p=>Number(text_(p.queueNo).replace(/^A/,''))||0));let count=0;
  for(const p of people){const mine=tasks.filter(t=>t.personId===p.personId&&t.status!=='取消'),types=Array.from(new Set(mine.map(t=>t.shootType))).filter(t=>SHOTS[t]);if(types.length<2){if(types.length===1&&p.shootTypes!==types[0])write_('people',{shootTypes:types[0]},p._row);continue;}
  const primary=types.includes('試鏡照')?'試鏡照':types[0],ci=checkins.find(c=>c.personId===p.personId);write_('people',{shootTypes:primary},p._row);if(ci&&primary==='試鏡照')write_('checkins',{consentStatus:'不適用'},ci._row);
@@ -135,4 +137,4 @@ function splitShootWorkflows(){
 }
 
 // Run from the owner editor: hold the same lock as check-in/shooting writes while moving columns.
-function organizePhotoRoster(){const lock=LockService.getScriptLock();lock.waitLock(20000);try{tableCache_={};cachedBook_=null;cacheClear_();const sh=sheet_('people'),labels=Object.keys(ROSTER_HEADERS),keys=labels.map(x=>ROSTER_HEADERS[x]);let headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(x=>ROSTER_HEADERS[x]||x);if(headers.some(x=>x&&!keys.includes(x)))throw Error('名單包含未知欄位，已停止整理');const before=rows_('people').map(p=>p.personId).sort().join('|');for(const key of keys)if(!headers.includes(key)){sh.getRange(1,headers.length+1).setValue(key);headers.push(key);}for(let i=0;i<keys.length;i++){const j=headers.indexOf(keys[i]);if(j!==i){sh.moveColumns(sh.getRange(1,j+1),i+1);headers.splice(i,0,headers.splice(j,1)[0]);}}sh.getRange(1,1,1,labels.length).setValues([labels]);tableCache_={};const after=rows_('people').map(p=>p.personId).sort().join('|');if(before!==after)throw Error('識別碼核對不一致');const snap=snapshot_();console.log(JSON.stringify({organized:true,people:snap.people.length,tasks:snap.tasks.length,idsPreserved:true}));return true;}finally{lock.releaseLock();}}
+function organizePhotoRoster(){stableSnapshot_=null;const lock=LockService.getScriptLock();lock.waitLock(20000);try{tableCache_={};cachedBook_=null;cacheClear_();const sh=sheet_('people'),labels=Object.keys(ROSTER_HEADERS),keys=labels.map(x=>ROSTER_HEADERS[x]);let headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(x=>ROSTER_HEADERS[x]||x);if(headers.some(x=>x&&!keys.includes(x)))throw Error('名單包含未知欄位，已停止整理');const before=rows_('people').map(p=>p.personId).sort().join('|');for(const key of keys)if(!headers.includes(key)){sh.getRange(1,headers.length+1).setValue(key);headers.push(key);}for(let i=0;i<keys.length;i++){const j=headers.indexOf(keys[i]);if(j!==i){sh.moveColumns(sh.getRange(1,j+1),i+1);headers.splice(i,0,headers.splice(j,1)[0]);}}sh.getRange(1,1,1,labels.length).setValues([labels]);tableCache_={};const after=rows_('people').map(p=>p.personId).sort().join('|');if(before!==after)throw Error('識別碼核對不一致');const snap=snapshot_();console.log(JSON.stringify({organized:true,people:snap.people.length,tasks:snap.tasks.length,idsPreserved:true}));return true;}finally{lock.releaseLock();}}
