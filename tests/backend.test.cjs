@@ -10,10 +10,10 @@ assert.throws(()=>run('snapshot',{},'wrong'),/密碼/);
 let r=run('savePerson',{profile,shootType:'試鏡照'}),p=r.people[0];
 r=run('savePerson',{profile,shootType:'形象照'});const image=r.people.find(x=>x.shootTypes==='形象照');assert.notEqual(image.personId,p.personId);
 assert.throws(()=>run('savePerson',{personId:p.personId,profile,shootType:'形象照'}),/不能變更/);
-r=run('checkIn',{personId:p.personId});assert.equal(r.people.find(x=>x.personId===p.personId).queueNo,'A01');assert.equal(r.people[0].phone,'0912345678');assert.equal(r.checkins[0].consentStatus,'不適用');
+r=run('checkIn',{personId:p.personId});assert.equal(r.people.find(x=>x.personId===p.personId).queueNo,'001');assert.equal(r.people[0].phone,'0912345678');assert.equal(r.checkins[0].consentStatus,'不適用');
 assert.throws(()=>run('checkIn',{personId:image.personId}),/同意書/);
-r=run('checkIn',{personId:image.personId,consent:true});assert.equal(r.people.find(x=>x.personId===image.personId).queueNo,'A02');
-r=run('checkIn',{personId:p.personId});assert.equal(r.people[0].queueNo,'A01');assert.equal(r.checkins.length,2);
+r=run('checkIn',{personId:image.personId,consent:true});assert.equal(r.people.find(x=>x.personId===image.personId).queueNo,'002');
+r=run('checkIn',{personId:p.personId});assert.equal(r.people[0].queueNo,'001');assert.equal(r.checkins.length,2);
 assert.throws(()=>run('start',{personId:p.personId}),/先叫號/);
 run('call',{personId:p.personId});r=run('start',{personId:p.personId});assert.equal(r.live.calledPersonId,'');assert.equal(r.live.activePersonId,p.personId);
 r=run('call',{personId:image.personId});assert.equal(r.live.activePersonId,p.personId);assert.equal(r.live.calledPersonId,image.personId);
@@ -28,7 +28,7 @@ const first=run('snapshot'),before=bookReads;run('snapshot');assert.equal(bookRe
 assert.equal(run('display',{mode:'call'}).person.phone,'0912345678');
 // Legacy combined record migration preserves identifiers, notes and checklist progress.
 vm.runInContext(`cacheClear_();write_('people',{personId:'legacy',studentId:'00001234',name:'舊名單',class:'一乙',shootTypes:'試鏡照＋形象照',checkInStatus:'已報到',queueNo:'A03',phone:'0900000000',heightCm:'170',weightKg:'60'});write_('tasks',{taskId:'legacy-trial',personId:'legacy',shootType:'試鏡照',status:'拍攝中',checkedItems:'["全身正面"]',notes:'trial note'});write_('tasks',{taskId:'legacy-image',personId:'legacy',shootType:'形象照',status:'拍攝中',checkedItems:'["固定姿勢"]',notes:'image note'});write_('checkins',{personId:'legacy',queueNo:'A03',consentStatus:'已完成'});setLive_('activePersonId','legacy','test');flush_();`,ctx);
-ctx.splitShootWorkflows();r=run('snapshot');const split=r.people.find(x=>x.personId==='legacy__image');assert.equal(split.shootTypes,'形象照');assert.equal(split.queueNo,'A04');const moved=r.tasks.find(t=>t.taskId==='legacy-image');assert.equal(moved.personId,split.personId);assert.equal(moved.notes,'image note');assert.deepEqual(moved.checked,['固定姿勢']);assert.equal(moved.status,'待拍攝');assert.equal(r.live.activePersonId,'legacy');
+ctx.splitShootWorkflows();r=run('snapshot');const split=r.people.find(x=>x.personId==='legacy__image');assert.equal(split.shootTypes,'形象照');assert.equal(split.queueNo,'004');const moved=r.tasks.find(t=>t.taskId==='legacy-image');assert.equal(moved.personId,split.personId);assert.equal(moved.notes,'image note');assert.deepEqual(moved.checked,['固定姿勢']);assert.equal(moved.status,'待拍攝');assert.equal(r.live.activePersonId,'legacy');
 const count=r.people.length;ctx.splitShootWorkflows();assert.equal(run('snapshot').people.length,count,'migration must be idempotent');
 // Single-request check-in persists profile and number, while invalid consent changes nothing.
 const fixed={...profile,studentId:'00005555',name:'一次報到'};
@@ -42,5 +42,9 @@ assert.throws(()=>run('finish',{personId:one.personId,tasks:own.map(t=>({taskId:
 r=run('hold',{personId:one.personId,tasks:own.map(t=>({taskId:t.taskId,checked:t.items.slice(0,1),notes:'暫緩備註'}))});assert.equal(r.live.activePersonId,'');assert.equal(r.tasks.find(t=>t.personId===one.personId).status,'待拍攝');assert.equal(r.tasks.find(t=>t.personId===one.personId).notes,'暫緩備註');
 run('call',{personId:one.personId});run('hold',{personId:image.personId});run('start',{personId:one.personId});r=run('finish',{personId:one.personId,tasks:own.map(t=>({taskId:t.taskId,checked:t.items,notes:'完成一起存'}))});assert.equal(r.tasks.find(t=>t.personId===one.personId).status,'已完成');assert.equal(r.tasks.find(t=>t.personId===one.personId).notes,'完成一起存');
 const {scheduleReport,scheduleMinute}=require('../schedule.js');assert.equal(scheduleMinute('0800'),480);assert.equal(scheduleMinute('09:30'),570);const ss={people:[{personId:'a',name:'甲',class:'一甲',shootTypes:'試鏡照'},{personId:'b',name:'乙',class:'一甲',shootTypes:'試鏡照'},{personId:'c',name:'丙',class:'一甲',shootTypes:'試鏡照',checkInStatus:'請假'}],tasks:[{personId:'a',status:'已完成'},{personId:'b',status:'待拍攝'}],schedule:[{start:'0900',end:'1000',title:'一甲試鏡照拍攝',kind:'班級'}]};assert.equal(scheduleReport(ss,570).expected,1);assert.equal(scheduleReport(ss,600).overdue.length,1);assert.equal(scheduleReport(ss,570).actual,1);
+// Chinese roster headers and reordered columns retain stable relationships.
+vm.runInContext(`const peopleSheet=book_().getSheetByName('拍攝學生名單');const original=peopleSheet.rows;const names=original[0];const order=['學號','班級','姓名','拍攝類型','拍攝時段','號碼','報到狀態','拍攝狀態','拍攝備註','行動電話','身高 cm','體重 kg','肖像權收件','系統識別碼','年級','資料來源','待確認事項'];peopleSheet.rows=[order,...original.slice(1).map(row=>order.map(label=>row[names.indexOf(ROSTER_HEADERS[label])]))];cacheClear_();`,ctx);
+r=run('snapshot',{fresh:true});assert.equal(r.people.find(x=>x.personId===one.personId).shootNotes,'完成一起存');assert.equal(r.people.find(x=>x.personId===one.personId).shootStatus,'已完成');assert.equal(r.people.find(x=>x.personId===one.personId).queueNo,one.queueNo);
+const {shootSlot}=require('../schedule.js');assert.equal(shootSlot({class:'一甲',shootTypes:'試鏡照'},ss.schedule),'09:00–10:00');assert.equal(shootSlot({class:'老師'},ss.schedule),'隨到隨拍');assert.equal(shootSlot({class:'二甲',name:'找不到',shootTypes:'形象照'},ss.schedule),'時段待安排');assert.equal(ctx.slotLabel_({class:'一甲',shootTypes:'試鏡照'},ss.schedule),'09:00–10:00');assert.equal(ctx.queueNo_('A01'),'001');assert.equal(ctx.queueNo_('102'),'102');assert.equal(ctx.queueNo_('1001'),'1001');
 console.log('PASS: independent records, single-request check-in/finish, consent validation, stable numbering, FIFO calls, automatic next call, hold returns to waiting with notes, cache, migration, phone and schedule comparison');
 module.exports={ctx,run,profile};

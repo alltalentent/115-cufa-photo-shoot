@@ -1,23 +1,28 @@
 /* CUFA PHOTO CONTROL — 2026-10-31. No credentials belong in this file. */
 const DB_ID = '1EhDDUVQ-Jvn9v9LXLLYYemBBlZ7dcEZAmfJQrJ6XJpw';
-const VERSION = 'photo-control-20261101-v3';
+const VERSION = 'photo-control-20261101-v4';
 const CLASSES = ['一甲','一乙','一丙','二甲','二乙','二丙','三甲','三乙','三丙','四甲','四乙','四丙','老師'];
 const SHOTS = {'試鏡照':['全身正面','半身正面','半身側面','個人發揮'],'形象照':['個人發揮','固定姿勢']};
 const TABS = {people:'拍攝學生名單',tasks:'ShootTasks',checkins:'CheckIns',live:'LiveControl',logs:'ActivityLogs',inbox:'RegistrationInbox',schedule:'拍攝流程'};
 const HEADERS = {
- people:['personId','studentId','name','class','year','shootTypes','source','reviewFlag','phone','heightCm','weightKg','checkInStatus','queueNo'],
+ people:['personId','studentId','name','class','year','shootTypes','source','reviewFlag','phone','heightCm','weightKg','checkInStatus','queueNo','shootSlot','shootStatus','shootNotes','consentReceived'],
  tasks:['taskId','personId','shootType','checklist','status','checkedItems','notes','updatedAt'],
  checkins:['personId','queueNo','checkedAt','operator','consentStatus'],
  live:['key','value','updatedAt','operator'],logs:['timestamp','action','personId','operator','details'],
  inbox:['submissionId','studentId','name','class','heightCm','weightKg','phone','submittedAt','status']
 };
+const ROSTER_HEADERS={'學號':'studentId','班級':'class','姓名':'name','拍攝類型':'shootTypes','拍攝時段':'shootSlot','號碼':'queueNo','報到狀態':'checkInStatus','拍攝狀態':'shootStatus','拍攝備註':'shootNotes','行動電話':'phone','身高 cm':'heightCm','體重 kg':'weightKg','肖像權收件':'consentReceived','系統識別碼':'personId','年級':'year','資料來源':'source','待確認事項':'reviewFlag'};
+function queueNo_(value){const raw=text_(value);if(!raw)return '';const n=raw.replace(/^A/i,'');if(!/^\d+$/.test(n))throw Error('叫號號碼格式不正確，請核對名單');return n.padStart(3,'0');}
+function slotMinute_(value){const s=text_(value).replace(':','');if(!/^\d{3,4}$/.test(s))return null;const n=s.padStart(4,'0'),h=+n.slice(0,2),m=+n.slice(2);return h<24&&m<60?h*60+m:null;}
+function slotTime_(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
+function slotLabel_(p,schedule){const found=schedule.filter(s=>{if(s.kind==='老師')return p.class==='老師';if(s.kind==='個人')return p.shootTypes==='形象照'&&p.name===s.title;if(s.kind==='班級'){const c=text_(s.title).match(/[一二三四][甲乙丙]/);return !!c&&p.class===c[0]&&text_(s.title).includes(p.shootTypes==='試鏡照'?'試鏡':'形象');}return false;});return Array.from(new Set(found.map(s=>{const a=slotMinute_(s.start),b=slotMinute_(s.end);return a===null||b===null?'隨到隨拍':slotTime_(a)+'–'+slotTime_(b);}))).join('、')||(p.class==='老師'?'隨到隨拍':'時段待安排');}
 let cachedBook_, tableCache_ = {};
 function book_(){return cachedBook_||(cachedBook_=SpreadsheetApp.openById(DB_ID));}
 function sheet_(key){if(tableCache_[key])return tableCache_[key].sheet;const s=book_().getSheetByName(TABS[key]);if(!s)throw Error('缺少資料表');return s;}
 function now_(){return Utilities.formatDate(new Date(),'Asia/Taipei','yyyy-MM-dd HH:mm:ss');}
 function text_(x){return String(x==null?'':x).trim();}
 function safe_(x){const s=String(x==null?'':x);return /^[=+@\-]/.test(s)?"'"+s:s;}
-function table_(k){if(!tableCache_[k]){const sheet=sheet_(k),values=sheet.getDataRange().getDisplayValues(),headers=values.shift();tableCache_[k]={sheet,headers,values};}return tableCache_[k];}
+function table_(k){if(!tableCache_[k]){const sheet=sheet_(k),values=sheet.getDataRange().getDisplayValues(),headers=values.shift().map(h=>k==='people'?(ROSTER_HEADERS[h]||h):h);tableCache_[k]={sheet,headers,values};}return tableCache_[k];}
 function rows_(k){const t=table_(k);return t.values.map((r,i)=>Object.assign({_row:i+2},...t.headers.map((n,j)=>({[n]:r[j]||''})))).filter(r=>t.headers.some(n=>r[n]));}
 function write_(k,obj,row){const t=table_(k),index=row?row-2:t.values.length,values=t.headers.map((n,i)=>Object.prototype.hasOwnProperty.call(obj,n)?text_(obj[n]):(t.values[index]||[])[i]||'');t.values[index]=values;(t.dirty||(t.dirty=new Set())).add(index);}
 function flush_(){for(const k of Object.keys(tableCache_)){const t=tableCache_[k];if(!t.dirty?.size)continue;const first=Math.min(...t.dirty),last=Math.max(...t.dirty);t.sheet.getRange(first+2,1,last-first+1,t.headers.length).setNumberFormat('@').setValues(t.values.slice(first,last+1).map(row=>t.headers.map((_,i)=>safe_(row[i]||''))));t.dirty.clear();}}
@@ -28,13 +33,18 @@ function json_(data){return ContentService.createTextOutput(JSON.stringify(data)
 function doGet(){return json_({ok:true,version:VERSION,status:'online'});}
 function doPost(e){try{return json_({ok:true,data:dispatch_(JSON.parse(e.postData.contents))});}catch(err){return json_({ok:false,error:err.message||'操作失敗'});}}
 function auth_(p){const expected=PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');if(!expected)throw Error('尚未設定工作人員密碼');if(typeof p!=='string'||p!==expected)throw Error('工作人員密碼錯誤');}
-function setupPhotoControl(){const b=book_();Object.keys(HEADERS).forEach(k=>{let s=b.getSheetByName(TABS[k]);if(!s)s=b.insertSheet(TABS[k]);const h=s.getLastColumn()?s.getRange(1,1,1,s.getLastColumn()).getDisplayValues()[0]:[];HEADERS[k].filter(n=>!h.includes(n)).forEach((n,i)=>s.getRange(1,h.length+i+1).setValue(n));s.setFrozenRows(1);s.getRange(1,1,1,HEADERS[k].length).setBackground('#eeeeee').setFontWeight('bold');s.setColumnWidths(1,HEADERS[k].length,145);});b.setSpreadsheetTimeZone('Asia/Taipei');console.log('拍攝系統初始化完成；名單 '+rows_('people').length+' 人。保留原始名單與密碼。');}
+function setupPhotoControl(){const b=book_();Object.keys(HEADERS).forEach(k=>{let s=b.getSheetByName(TABS[k]);if(!s)s=b.insertSheet(TABS[k]);const h=s.getLastColumn()?s.getRange(1,1,1,s.getLastColumn()).getDisplayValues()[0].map(n=>k==='people'?(ROSTER_HEADERS[n]||n):n):[];HEADERS[k].filter(n=>!h.includes(n)).forEach((n,i)=>s.getRange(1,h.length+i+1).setValue(n));s.setFrozenRows(1);s.getRange(1,1,1,HEADERS[k].length).setBackground('#eeeeee').setFontWeight('bold');s.setColumnWidths(1,HEADERS[k].length,145);});b.setSpreadsheetTimeZone('Asia/Taipei');console.log('拍攝系統初始化完成；名單 '+rows_('people').length+' 人。保留原始名單與密碼。');}
 function clean_(o){const c=Object.assign({},o);delete c._row;return c;}
 function live_(){return Object.fromEntries(rows_('live').map(r=>[r.key,r.value]));}
 function setLive_(key,value,op){const r=rows_('live').find(r=>r.key===key);write_('live',{key,value,updatedAt:now_(),operator:op},r&&r._row);}
 function taskItems_(t){return SHOTS[t.shootType]||text_(t.checklist).split('／').filter(Boolean);}
 function checked_(t){try{const v=JSON.parse(t.checkedItems||'[]');return Array.isArray(v)?v:[];}catch(_){return text_(t.checkedItems).split('／').filter(Boolean);}}
-function snapshot_(){flush_();const snapshot={version:VERSION,people:rows_('people').map(clean_),tasks:rows_('tasks').map(t=>Object.assign(clean_(t),{items:taskItems_(t),checked:checked_(t)})),checkins:rows_('checkins').map(clean_),live:live_(),schedule:book_().getSheetByName(TABS.schedule)?rows_('schedule').map(clean_):[],inbox:rows_('inbox').filter(r=>r.status==='待核對').map(clean_),updatedAt:now_()};cacheWrite_(snapshot);return snapshot;}
+function snapshot_(){const people=rows_('people'),tasks=rows_('tasks'),checkins=rows_('checkins'),live=live_(),schedule=book_().getSheetByName(TABS.schedule)?rows_('schedule').map(clean_):[];
+ for(const ci of checkins){const no=queueNo_(ci.queueNo);if(no!==ci.queueNo){write_('checkins',{queueNo:no},ci._row);ci.queueNo=no;}}
+ for(const p of people){const mine=tasks.filter(t=>t.personId===p.personId&&t.status!=='取消'),ci=checkins.find(c=>c.personId===p.personId),status=p.checkInStatus==='請假'?'請假':mine.length&&mine.every(t=>t.status==='已完成')?'已完成':live.activePersonId===p.personId?'拍攝中':calledQueue_(live).includes(p.personId)?'正在叫號':mine.some(t=>t.status==='待補拍')?'待補拍':p.checkInStatus==='已報到'?'待拍攝':'未報到';
+ const summary={queueNo:queueNo_(p.queueNo),shootSlot:slotLabel_(p,schedule),shootStatus:status,shootNotes:mine.filter(t=>t.notes).map(t=>mine.length>1?t.shootType+'：'+t.notes:t.notes).join('；'),consentReceived:p.shootTypes==='形象照'?(ci&&ci.consentStatus==='已完成'?'已收件':'未收件'):'不適用'};
+ const changes={};for(const key of Object.keys(summary))if(p[key]!==summary[key])changes[key]=summary[key];if(Object.keys(changes).length)write_('people',changes,p._row);Object.assign(p,summary);}
+ flush_();const snapshot={version:VERSION,people:people.map(clean_),tasks:tasks.map(t=>Object.assign(clean_(t),{items:taskItems_(t),checked:checked_(t)})),checkins:checkins.map(clean_),live,schedule,inbox:rows_('inbox').filter(r=>r.status==='待核對').map(clean_),updatedAt:now_()};cacheWrite_(snapshot);return snapshot;}
 function profile_(d){const p={studentId:text_(d.studentId),name:text_(d.name),class:text_(d.class),heightCm:text_(d.heightCm),weightKg:text_(d.weightKg),phone:text_(d.phone)};if(!CLASSES.includes(p.class)||!p.name||p.name.length>50)throw Error('請填寫正確班級及姓名');if(p.class!=='老師'&&!/^[A-Za-z0-9]{4,20}$/.test(p.studentId))throw Error('請確認學號');if(p.class==='老師'&&p.studentId&&!/^[A-Za-z0-9]{1,20}$/.test(p.studentId))throw Error('識別碼格式不正確');if(!(Number(p.heightCm)>=80&&Number(p.heightCm)<=250))throw Error('身高請填 80–250 cm');if(!(Number(p.weightKg)>=20&&Number(p.weightKg)<=250))throw Error('體重請填 20–250 kg');if(!/^\+?[0-9 ()-]{8,20}$/.test(p.phone))throw Error('請確認行動電話');return p;}
 function logAction_(action,id,op,detail){const sh=sheet_('logs');sh.getRange(sh.getLastRow()+1,1,1,5).setNumberFormat('@').setValues([[now_(),action,id,op,JSON.stringify(detail||{})].map(safe_)]);}
 function ready_(p,tasks,checkins){if(p.checkInStatus!=='已報到')throw Error('此人尚未報到或已請假');const ts=tasks.filter(t=>t.personId===p.personId);if(!ts.length)throw Error('尚未設定拍攝任務');if(ts.some(t=>t.shootType==='形象照')&&!checkins.some(c=>c.personId===p.personId&&c.consentStatus==='已完成'))throw Error('請先在報到區檢核肖像權同意書');}
@@ -48,14 +58,14 @@ function saveCheckin_(d,op,people,tasks,checkins,p){
  if(people.some(x=>v.studentId&&x.studentId===v.studentId&&x.shootTypes===type&&x.personId!==(p&&p.personId)))throw Error('此學號已在此拍攝名單中');
  if(d.personId&&!p)throw Error('找不到人員');
  const id=p?p.personId:'P'+Utilities.getUuid(),ci=checkins.find(c=>c.personId===id);
- let no=(p&&p.queueNo)||(ci&&ci.queueNo);if(!no)no='A'+String(Math.max(0,...people.map(x=>Number(text_(x.queueNo).replace(/^A/,''))||0),...checkins.map(x=>Number(text_(x.queueNo).replace(/^A/,''))||0))+1).padStart(2,'0');
+ let no=(p&&p.queueNo)||(ci&&ci.queueNo);if(!no)no=String(Math.max(0,...people.map(x=>Number(text_(x.queueNo).replace(/^A/,''))||0),...checkins.map(x=>Number(text_(x.queueNo).replace(/^A/,''))||0))+1).padStart(3,'0');
  write_('people',Object.assign({},v,{personId:id,shootTypes:type,source:p?p.source:'現場新增',checkInStatus:'已報到',queueNo:no}),p&&p._row);
  if(v.studentId)people.filter(x=>x.personId!==id&&x.studentId===v.studentId).forEach(x=>write_('people',v,x._row));
  if(!p)write_('tasks',{taskId:'T'+Utilities.getUuid(),personId:id,shootType:type,checklist:SHOTS[type].join('／'),status:'待拍攝',checkedItems:'[]',updatedAt:now_()});
  tasks.filter(t=>t.personId===id&&['待報到','請假'].includes(t.status)).forEach(t=>write_('tasks',{status:'待拍攝',updatedAt:now_()},t._row));
  write_('checkins',{personId:id,queueNo:no,checkedAt:ci?ci.checkedAt:now_(),operator:op,consentStatus:type==='形象照'?'已完成':'不適用'},ci&&ci._row);
  if(d.submissionId){const row=rows_('inbox').find(x=>x.submissionId===d.submissionId);if(row)write_('inbox',{status:'已核對'},row._row);}
- logAction_('saveCheckIn',id,op);return Object.assign(snapshot_(),{receipt:{personId:id,name:v.name,queueNo:no,shootType:type}});
+ logAction_('saveCheckIn',id,op);return Object.assign(snapshot_(),{receipt:{personId:id,name:v.name,queueNo:queueNo_(no),shootType:type,shootSlot:slotLabel_(Object.assign({},v,{shootTypes:type}),book_().getSheetByName(TABS.schedule)?rows_('schedule'):[])}});
 }
 function taskUpdates_(mine,updates,complete){if(!Array.isArray(updates))throw Error('缺少拍攝項目');const seen=new Set();const clean=updates.map(u=>{const t=mine.find(t=>t.taskId===u.taskId);if(!t||seen.has(u.taskId))throw Error('拍攝任務不正確');seen.add(u.taskId);const items=taskItems_(t);if(!Array.isArray(u.checked)||u.checked.some(x=>!items.includes(x)))throw Error('拍攝項目不正確');const checked=Array.from(new Set(u.checked));if(complete&&checked.length!==items.length)throw Error('請先勾選所有拍攝項目');return {t,checked,notes:text_(u.notes).slice(0,2000)};});if(complete&&seen.size!==mine.length)throw Error('請確認所有拍攝任務');return clean;}
 function dispatch_(d){
@@ -66,7 +76,7 @@ function dispatch_(d){
  }
  auth_(d.password);
  if(d.action==='snapshot'){const cached=cacheRead_();if(cached&&!d.fresh)return cached;const readLock=LockService.getScriptLock();readLock.waitLock(20000);try{if(d.fresh){cacheClear_();return snapshot_();}return cacheRead_()||snapshot_();}finally{readLock.releaseLock();}}
- if(d.action==='display'){const cached=cacheRead_(),live=cached?cached.live:live_(),ps=cached?cached.people:rows_('people'),person=ps.find(p=>p.personId===(d.mode==='slate'?live.activePersonId:live.calledPersonId));return {live,person:person?{personId:person.personId,studentId:person.studentId,name:person.name,class:person.class,heightCm:person.heightCm,weightKg:person.weightKg,phone:person.phone,shootTypes:person.shootTypes,queueNo:person.queueNo}:null,updatedAt:cached?cached.updatedAt:now_()};}
+ if(d.action==='display'){const cached=cacheRead_(),live=cached?cached.live:live_(),ps=cached?cached.people:rows_('people'),person=ps.find(p=>p.personId===(d.mode==='slate'?live.activePersonId:live.calledPersonId));return {live,person:person?{personId:person.personId,studentId:person.studentId,name:person.name,class:person.class,heightCm:person.heightCm,weightKg:person.weightKg,phone:person.phone,shootTypes:person.shootTypes,queueNo:queueNo_(person.queueNo),shootSlot:person.shootSlot||slotLabel_(person,book_().getSheetByName(TABS.schedule)?rows_('schedule'):[])}:null,updatedAt:cached?cached.updatedAt:now_()};}
  const lock=LockService.getScriptLock();lock.waitLock(20000);
  try{
  cacheClear_();
@@ -88,7 +98,7 @@ function dispatch_(d){
  if(d.action==='checkIn'){
   const isImage=mine.some(t=>t.shootType==='形象照'),consent=isImage?(d.consent===true?'已完成':'未完成'):'不適用';
   if(mine.some(t=>t.shootType==='形象照')&&consent!=='已完成')throw Error('形象照請先確認肖像權同意書');
-  profile_(p);let no=p.queueNo||(ci&&ci.queueNo);if(!no){const max=Math.max(0,...people.map(x=>Number(text_(x.queueNo).replace(/^A/,''))||0),...checkins.map(x=>Number(text_(x.queueNo).replace(/^A/,''))||0));no='A'+String(max+1).padStart(2,'0');}
+  profile_(p);let no=p.queueNo||(ci&&ci.queueNo);if(!no){const max=Math.max(0,...people.map(x=>Number(text_(x.queueNo).replace(/^A/,''))||0),...checkins.map(x=>Number(text_(x.queueNo).replace(/^A/,''))||0));no=String(max+1).padStart(3,'0');}
   write_('people',{queueNo:no,checkInStatus:'已報到'},p._row);write_('checkins',{personId:p.personId,queueNo:no,checkedAt:ci?ci.checkedAt:now_(),operator:op,consentStatus:consent},ci&&ci._row);mine.filter(t=>['待報到','請假'].includes(t.status)).forEach(t=>write_('tasks',{status:'待拍攝',updatedAt:now_()},t._row));
  }else if(d.action==='absent'){
   if(live.activePersonId===p.personId)throw Error('請先結束棚內拍攝');write_('people',{checkInStatus:'請假'},p._row);mine.filter(t=>t.status!=='已完成').forEach(t=>write_('tasks',{status:'請假',updatedAt:now_()},t._row));if(calledQueue_(live).includes(p.personId))setCalledQueue_(calledQueue_(live).filter(id=>id!==p.personId),op);
@@ -115,7 +125,7 @@ function splitShootWorkflows(){
  try{cacheClear_();const people=rows_('people'),tasks=rows_('tasks'),checkins=rows_('checkins'),live=live_();let next=Math.max(0,...people.map(p=>Number(text_(p.queueNo).replace(/^A/,''))||0));let count=0;
  for(const p of people){const mine=tasks.filter(t=>t.personId===p.personId&&t.status!=='取消'),types=Array.from(new Set(mine.map(t=>t.shootType))).filter(t=>SHOTS[t]);if(types.length<2){if(types.length===1&&p.shootTypes!==types[0])write_('people',{shootTypes:types[0]},p._row);continue;}
  const primary=types.includes('試鏡照')?'試鏡照':types[0],ci=checkins.find(c=>c.personId===p.personId);write_('people',{shootTypes:primary},p._row);if(ci&&primary==='試鏡照')write_('checkins',{consentStatus:'不適用'},ci._row);
- for(const type of types.filter(t=>t!==primary)){const id=p.personId+'__'+(type==='形象照'?'image':'audition');if(people.some(x=>x.personId===id))throw Error('存在拆分紀錄，請先核對');const own=mine.filter(t=>t.shootType===type),copy=clean_(p);copy.personId=id;copy.shootTypes=type;copy.queueNo=p.queueNo?'A'+String(++next).padStart(2,'0'):'';write_('people',copy);
+ for(const type of types.filter(t=>t!==primary)){const id=p.personId+'__'+(type==='形象照'?'image':'audition');if(people.some(x=>x.personId===id))throw Error('存在拆分紀錄，請先核對');const own=mine.filter(t=>t.shootType===type),copy=clean_(p);copy.personId=id;copy.shootTypes=type;copy.queueNo=p.queueNo?String(++next).padStart(3,'0'):'';write_('people',copy);
  if(ci)write_('checkins',{personId:id,queueNo:copy.queueNo,checkedAt:ci.checkedAt,operator:ci.operator,consentStatus:ci.consentStatus});
  for(const t of own){const change={personId:id};if(live.activePersonId===p.personId&&t.status==='拍攝中')change.status='待拍攝';write_('tasks',change,t._row);}count++;}
  }
