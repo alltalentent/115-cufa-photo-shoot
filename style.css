@@ -12,3 +12,5 @@
 .checkin-table th:nth-child(5),.checkin-table td:nth-child(5){min-width:70px}.checkin-table th:nth-child(6),.checkin-table td:nth-child(6){min-width:95px}
 
 .upcoming{margin:20px auto;max-width:1400px}.upcoming-list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.upcoming-list li{padding:18px 22px;background:var(--panel);border-radius:8px}.upcoming-list strong{display:block;font-size:34px}.upcoming-list li>small{color:var(--accent)}.upcoming-list li>span{display:block;color:var(--muted)}.call-view.has-upcoming,:root:fullscreen .call-view.has-upcoming{min-height:42vh}.has-upcoming .call-name{font-size:clamp(70px,9vw,135px)}.has-upcoming .call-instruction{margin-top:18px}.table-scroll,.stage,.upcoming-list{overflow-anchor:none}@media(max-width:740px){.upcoming-list{grid-template-columns:repeat(2,minmax(0,1fr))}.digital-clock{width:220px}}
+
+.screen-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}#callSound[aria-pressed="true"]{color:var(--accent);border-color:#536345}
