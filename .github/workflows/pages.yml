@@ -23,6 +23,7 @@ jobs:
           node --check app.js
           node --check schedule.js
           node tests/backend.test.cjs
+          node tests/pickup.test.cjs
       - uses: actions/configure-pages@v5
       - name: Prepare static pages
         run: |

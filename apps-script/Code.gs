@@ -3,8 +3,9 @@ const DB_ID = '1EhDDUVQ-Jvn9v9LXLLYYemBBlZ7dcEZAmfJQrJ6XJpw';
 const VERSION = 'photo-control-20261101-v6';
 const CLASSES = ['一甲','一乙','一丙','二甲','二乙','二丙','三甲','三乙','三丙','四甲','四乙','四丙','老師'];
 const SHOTS = {'試鏡照':['全身正面','半身正面','半身側面','個人發揮'],'形象照':['個人發揮','固定姿勢']};
-const TABS = {people:'拍攝學生名單',tasks:'ShootTasks',checkins:'CheckIns',live:'LiveControl',logs:'ActivityLogs',inbox:'RegistrationInbox',schedule:'拍攝流程'};
+const TABS = {people:'拍攝學生名單',tasks:'ShootTasks',checkins:'CheckIns',live:'LiveControl',logs:'ActivityLogs',inbox:'RegistrationInbox',schedule:'拍攝流程',delivery:'PhotoDelivery'};
 const HEADERS = {
+ delivery:['studentId','name','shootType','folderId','enabled'],
  people:['personId','studentId','name','class','year','shootTypes','source','reviewFlag','phone','heightCm','weightKg','checkInStatus','queueNo','shootSlot','shootStatus','shootNotes','consentReceived'],
  tasks:['taskId','personId','shootType','checklist','status','checkedItems','notes','updatedAt'],
  checkins:['personId','queueNo','checkedAt','operator','consentStatus'],
@@ -82,6 +83,7 @@ function saveCheckin_(d,op,people,tasks,checkins,p){
 }
 function taskUpdates_(mine,updates,complete){if(!Array.isArray(updates))throw Error('缺少拍攝項目');const seen=new Set();const clean=updates.map(u=>{const t=mine.find(t=>t.taskId===u.taskId);if(!t||seen.has(u.taskId))throw Error('拍攝任務不正確');seen.add(u.taskId);const items=taskItems_(t);if(!Array.isArray(u.checked)||u.checked.some(x=>!items.includes(x)))throw Error('拍攝項目不正確');const checked=Array.from(new Set(u.checked));if(complete&&checked.length!==items.length)throw Error('請先勾選所有拍攝項目');return {t,checked,notes:text_(u.notes).slice(0,2000)};});if(complete&&seen.size!==mine.length)throw Error('請確認所有拍攝任務');return clean;}
 function dispatch_(d){
+ if(d.action==='pickupPhotos'){tableCache_={};cachedBook_=null;fastMetadata_=null;return pickupPhotos_(d);}
  if(PropertiesService.getScriptProperties().getProperty('SYNC_PAUSED')!=='false')throw Error('同步已暫停：正在編輯名單與流程，請等待重新啟用');
  tableCache_={};cachedBook_=null;stableSnapshot_=null;pendingSheetWrites_=false;fastMetadata_=null;pendingLogs_=[];
  if(d.action==='submitProfile'){
@@ -154,3 +156,19 @@ function organizePhotoRoster(){stableSnapshot_=null;const lock=LockService.getSc
 // Owner-only editor controls; no public API route can resume synchronization.
 function resumePhotoSync(){const lock=LockService.getScriptLock();lock.waitLock(20000);try{cacheClear_();PropertiesService.getScriptProperties().setProperty('SYNC_PAUSED','false');console.log('同步已恢復');}finally{lock.releaseLock();}}
 function pausePhotoSync(){const lock=LockService.getScriptLock();lock.waitLock(20000);try{PropertiesService.getScriptProperties().setProperty('SYNC_PAUSED','true');cacheClear_();console.log('同步已暫停');}finally{lock.releaseLock();}}
+
+// Student delivery reads only the caller's mapped folders. Never return roster/phone data.
+function pickupPhone_(value){let s=text_(value).replace(/[ ()-]/g,'');if(s.startsWith('+886'))s='0'+s.slice(4);else if(s.startsWith('886'))s='0'+s.slice(3);return /^09[0-9]{8}$/.test(s)?s:'';}
+function pickupPhotos_(d){
+ const id=text_(d.studentId),phone=pickupPhone_(d.phone),invalid='學號或手機號碼不正確，請確認使用拍攝報到時填寫的資料';
+ if(!/^[0-9]{8}$/.test(id)||!phone)throw Error(invalid);
+ const cache=CacheService.getScriptCache(),key='photo-pickup-fail-'+id,lock=LockService.getScriptLock();
+ lock.waitLock(5000);try{const count=Number(cache.get(key)||0);if(count>=5)throw Error('嘗試次數過多，請於 15 分鐘後再試，或聯絡工作人員');cache.put(key,String(count+1),900);}finally{lock.releaseLock();}
+ preload_(['people']);const matches=rows_('people').filter(p=>p.class!=='老師'&&p.studentId===id&&pickupPhone_(p.phone)===phone);
+ if(!matches.length||new Set(matches.map(p=>p.name)).size!==1)throw Error(invalid);
+ const name=matches[0].name;cache.remove(key);
+ if(!hasTable_('delivery'))return {name,folders:[]};preload_(['delivery']);
+ const selected=rows_('delivery').filter(r=>r.studentId===id&&r.name===name&&r.enabled==='yes'&&SHOTS[r.shootType]&&/^[A-Za-z0-9_-]{15,100}$/.test(r.folderId));
+ const seen=new Set(),folders=[];for(const r of selected){if(seen.has(r.folderId))continue;seen.add(r.folderId);folders.push({label:r.shootType,url:'https://drive.google.com/drive/folders/'+r.folderId});}
+ folders.sort((a,b)=>a.label==='試鏡照'?-1:b.label==='試鏡照'?1:0);return {name,folders};
+}
