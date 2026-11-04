@@ -167,6 +167,7 @@ function pickupPhotos_(d){
  preload_(['people']);const matches=rows_('people').filter(p=>p.class!=='老師'&&p.studentId===id&&pickupPhone_(p.phone)===phone);
  if(!matches.length||new Set(matches.map(p=>p.name)).size!==1)throw Error(invalid);
  const name=matches[0].name;cache.remove(key);
+ if(fastSheets_()&&!metadata_()[TABS.delivery]){cache.remove('photo-sheet-metadata');fastMetadata_=null;}
  if(!hasTable_('delivery'))return {name,folders:[]};preload_(['delivery']);
  const selected=rows_('delivery').filter(r=>r.studentId===id&&r.name===name&&r.enabled==='yes'&&SHOTS[r.shootType]&&/^[A-Za-z0-9_-]{15,100}$/.test(r.folderId));
  const seen=new Set(),folders=[];for(const r of selected){if(seen.has(r.folderId))continue;seen.add(r.folderId);folders.push({label:r.shootType,url:'https://drive.google.com/drive/folders/'+r.folderId});}
